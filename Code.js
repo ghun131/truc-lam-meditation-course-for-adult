@@ -29,6 +29,7 @@ function initDanhSachGuiMailSheet() {
   const columns = [
     "Đã chuyển khoản",
     "Đã gửi mail đăng ký thành công",
+    "Đã gửi mail nhắc chuyển tiền xe",
     "Thông báo",
     "Note",
   ];
@@ -100,6 +101,7 @@ function filterDuplicate() {
   const markedIdx = hIndice.get("sttMarkedIdx");
   const confirmMailSentIdx = hIndice.get("confirmMailSent");
   const docCreatedIdx = hIndice.get("docCreateIdx");
+  const remindingEmailIdx = hIndice.get("remindingMailIdx");
 
   let cache = {};
 
@@ -140,6 +142,8 @@ function filterDuplicate() {
             sheet.getRange(i + 1, confirmMailSentIdx + 1).setValue("x");
           docCreatedIdx !== undefined &&
             sheet.getRange(i + 1, docCreatedIdx + 1).setValue("x");
+          remindingEmailIdx !== undefined &&
+            sheet.getRange(i + 1, remindingEmailIdx + 1).setValue("x");
 
           console.log(`Dòng ${i + 1} trùng bạn ${item.name}, email: ${email}`);
         }
@@ -167,6 +171,7 @@ function createSuccessVerificationByBusMail(input) {
     contactName2,
     contactPhone2,
     cancelDate,
+    imageLink,
   } = input;
   return {
     subject: `[Khóa tu ${courseName}] Xác nhận đăng ký thành công - thiền sinh đi ô tô với Đoàn`,
@@ -215,7 +220,7 @@ function createSuccessVerificationByBusMail(input) {
         </style>
     </head>
     <body>
-        <img src="https://ghun131.github.io/meditation-course-images/ktmh_khoa_5_2025.jpg" alt="Cẩm nang Thiền sinh"  style="width: 100%; height: auto">
+        <img src=${imageLink} alt="Cẩm nang Thiền sinh"  style="width: 100%; height: auto">
         <p class="greeting">Thân chào bạn,</p>
 
         <p>Đoàn Thanh Thiếu Niên Phật Tử Trúc Lâm Tây Thiên xác nhận bạn đã đăng ký thành công tham gia <b>Khóa tu ${courseName}</b> tại Thiền viện Trúc Lâm Tây Thiên.</p>
@@ -272,6 +277,7 @@ function createSuccessVerificationOwnVehicleMail(input) {
     contactPhone,
     contactName2,
     contactPhone2,
+    imageLink,
   } = input;
   return {
     subject: `[Khóa tu ${courseName}] Xác nhận đăng ký thành công với Thiền sinh di chuyển tự túc`,
@@ -365,7 +371,7 @@ function createSuccessVerificationOwnVehicleMail(input) {
       </style>
   </head>
   <body>
-     <img src="https://ghun131.github.io/meditation-course-images/ktmh_khoa_5_2025.jpg" alt="Cẩm nang Thiền sinh"  style="width: 100%; height: auto">
+     <img src=${imageLink}" alt="Cẩm nang Thiền sinh"  style="width: 100%; height: auto">
       <p class="greeting">Thân chào bạn,</p>
 
       <p>Đoàn Thanh Thiếu Niên Phật Tử Trúc Lâm Tây Thiên xác nhận bạn đã đăng ký thành công tham gia <b>Khóa tu ${courseName}</b> tại Thiền viện Trúc Lâm Tây Thiên.</p>
@@ -559,22 +565,26 @@ function execSendMail() {
 
 function sendRegisterSuccessful({ sheet, row, email, byBus }) {
   const savedDataMap = getSavedData();
-  const successVerificationByBusMail = createSuccessVerificationByBusMail({
+  const commonData = {
     courseName: savedDataMap.get("courseName"),
     startDate: formatDate(savedDataMap.get("startDate")),
     endDate: formatDate(savedDataMap.get("endDate")),
     targetAudience: savedDataMap.get("targetAudience"),
     numberOfStudents: savedDataMap.get("numberOfStudents"),
-    busReadyTime: savedDataMap.get("busReadyTime"),
-    busStartTime: savedDataMap.get("busStartTime"),
-    busLocation: savedDataMap.get("busLocation"),
-    busMapLink: savedDataMap.get("busMapLink"),
     zaloGroupLink: savedDataMap.get("zaloGroupLink"),
     contactName: savedDataMap.get("contactName"),
     contactPhone: savedDataMap.get("contactPhone"),
     contactName2: savedDataMap.get("contactName2"),
     contactPhone2: savedDataMap.get("contactPhone2"),
     cancelDate: formatDate(savedDataMap.get("cancelDate")),
+    imageLink: savedDataMap.get("imageLink"),
+  };
+  const successVerificationByBusMail = createSuccessVerificationByBusMail({
+    ...commonData,
+    busReadyTime: savedDataMap.get("busReadyTime"),
+    busStartTime: savedDataMap.get("busStartTime"),
+    busLocation: savedDataMap.get("busLocation"),
+    busMapLink: savedDataMap.get("busMapLink"),
   });
   try {
     if (byBus) {
@@ -585,17 +595,8 @@ function sendRegisterSuccessful({ sheet, row, email, byBus }) {
     } else {
       const successVerificationOwnVehicleMail =
         createSuccessVerificationOwnVehicleMail({
-          courseName: savedDataMap.get("courseName"),
-          startDate: formatDate(savedDataMap.get("startDate")),
-          endDate: formatDate(savedDataMap.get("endDate")),
-          targetAudience: savedDataMap.get("targetAudience"),
-          numberOfStudents: savedDataMap.get("numberOfStudents"),
+          ...commonData,
           arrivalTime: savedDataMap.get("arrivalTime"),
-          zaloGroupLink: savedDataMap.get("zaloGroupLink"),
-          contactName: savedDataMap.get("contactName"),
-          contactPhone: savedDataMap.get("contactPhone"),
-          contactName2: savedDataMap.get("contactName2"),
-          contactPhone2: savedDataMap.get("contactPhone2"),
         });
       GmailApp.sendEmail(email, successVerificationOwnVehicleMail.subject, "", {
         htmlBody: successVerificationOwnVehicleMail.content,
@@ -721,6 +722,10 @@ function initLuuTruSheet(ss) {
     ["Tên chủ tài khoản ", "Mẫn Thị Thảo"], // Row 18
     ["Số tài khoản", "123456789"], // Row 19
     ["Ngày nhắc thanh toán tiền", new Date(2025, 7, 20)], // Row 20
+    [
+      "Link ảnh trên mail",
+      "https://ghun131.github.io/meditation-course-images/ktmh_khoa_5_2025.jpg",
+    ], // Row 21
   ];
 
   // Set the data
@@ -777,6 +782,10 @@ function getHeadersIndices(headerData) {
 
     if (header === "đã đánh số thứ tự") {
       result.set("sttMarkedIdx", i);
+    }
+
+    if (header === "đã gửi mail nhắc chuyển tiền xe") {
+      result.set("remindingMailIdx", i);
     }
 
     if (header === "đã tạo đơn đăng ký") {
@@ -847,6 +856,7 @@ function getSavedData() {
     ["bankAccountName", savedData[18][1]], // Tên tài khoản ngân hàng
     ["bankAccountNumber", savedData[19][1]], // Số tài khoản ngân hàng
     ["deadlinePayment", savedData[20][1]], // Hạn chót thanh toán
+    ["imageLink", savedData[21][1]], // Link ảnh trên mail
   ]);
 
   return result;
