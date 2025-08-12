@@ -6,7 +6,7 @@ function onOpen() {
     .addItem("Lọc trùng thiền sinh", "filterDuplicate")
     .addToUi();
 
-  ui.createMenu("Kiểm tra nhanh")
+  ui.createMenu("Chạy chủ động")
     .addItem("Gửi mail xác nhận toàn bộ", "execSendMail")
     .addItem(
       "Gửi mail nhắc chuyển tiền xe toàn bộ",
@@ -618,6 +618,32 @@ function sendRegisterSuccessful({ sheet, row, email, byBus }) {
     console.log(`sendingRegisterSuccessful: ${error}`);
     setRowBackgroundColor(sheet, "#ffdddd", row);
     sheet.getRange(row + 1, 16).setValue("Lỗi mail xác nhận!");
+  }
+}
+
+function testSendBusFeePaymentReminder() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = spreadsheet.getSheetByName("Danh sách gửi mail");
+
+  const lastRow = sheet.getLastRow();
+  const lastColumn = sheet.getLastColumn();
+  if (lastRow === 0) {
+    console.log("No data found in the sheet.");
+    return;
+  }
+
+  const allData = sheet.getRange(1, 1, lastRow, lastColumn).getValues();
+
+  for (let row = 0; row < allData.length; row++) {
+    if (row === 0) continue;
+
+    const rowData = allData[row];
+    const email = rowData[10]; // Column K
+
+    sendBusFeePaymentReminder(sheet, row, email);
+    console.log(
+      `testSendBusFeePaymentReminder: send payment reminder mail to ${email}`
+    );
   }
 }
 
