@@ -5,6 +5,14 @@ function onOpen() {
     .addItem("Sync danh sách gửi mail", "syncDanhSachGuiMailSheet")
     .addItem("Lọc trùng thiền sinh", "filterDuplicate")
     .addToUi();
+
+  ui.createMenu("Kiểm tra nhanh")
+    .addItem("Gửi mail xác nhận toàn bộ", "execSendMail")
+    .addItem(
+      "Gửi mail nhắc chuyển tiền xe toàn bộ",
+      "execSendBusFeeReminderMail"
+    )
+    .addToUi();
 }
 
 // ------------ CREATE MENU FUNCTIONS ------------
@@ -220,7 +228,7 @@ function createSuccessVerificationByBusMail(input) {
         </style>
     </head>
     <body>
-        <img src=${imageLink} alt="Cẩm nang Thiền sinh"  style="width: 100%; height: auto">
+        <img src="${imageLink}" alt="Cẩm nang Thiền sinh"  style="width: 100%; height: auto">
         <p class="greeting">Thân chào bạn,</p>
 
         <p>Đoàn Thanh Thiếu Niên Phật Tử Trúc Lâm Tây Thiên xác nhận bạn đã đăng ký thành công tham gia <b>Khóa tu ${courseName}</b> tại Thiền viện Trúc Lâm Tây Thiên.</p>
@@ -371,7 +379,7 @@ function createSuccessVerificationOwnVehicleMail(input) {
       </style>
   </head>
   <body>
-     <img src=${imageLink}" alt="Cẩm nang Thiền sinh"  style="width: 100%; height: auto">
+     <img src="${imageLink}" alt="Cẩm nang Thiền sinh"  style="width: 100%; height: auto">
       <p class="greeting">Thân chào bạn,</p>
 
       <p>Đoàn Thanh Thiếu Niên Phật Tử Trúc Lâm Tây Thiên xác nhận bạn đã đăng ký thành công tham gia <b>Khóa tu ${courseName}</b> tại Thiền viện Trúc Lâm Tây Thiên.</p>
