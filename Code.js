@@ -10,7 +10,7 @@ function onOpen() {
     .addItem("Gửi mail xác nhận toàn bộ", "execSendMail")
     .addItem(
       "Gửi mail nhắc chuyển tiền xe toàn bộ",
-      "execSendBusFeeReminderMail"
+      "testSendBusFeePaymentReminder"
     )
     .addToUi();
 }
@@ -19,6 +19,7 @@ function onOpen() {
 function initDanhSachGuiMailSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName("Danh sách gửi mail");
+  const savingSheet = ss.getSheetByName("Lưu trữ");
 
   const sourceSheet = ss.getSheetByName("Câu trả lời biểu mẫu 1");
   if (!sourceSheet) {
@@ -27,10 +28,13 @@ function initDanhSachGuiMailSheet() {
     );
   }
 
-  if (!sheet) {
-    sheet = ss.insertSheet("Danh sách gửi mail");
-    initLuuTruSheet(ss);
+  if (Boolean(sheet) && Boolean(savingSheet)) {
+    return;
   }
+
+  sheet = ss.insertSheet("Danh sách gửi mail");
+  initLuuTruSheet(ss);
+  console.log("Đã tạo danh sách gửi mail và Lưu trữ!");
 
   cloneSheetData(sourceSheet, sheet);
 
@@ -421,7 +425,14 @@ function createSuccessVerificationOwnVehicleMail(input) {
 }
 
 function createPaymentReminderMail(input) {
-  const { courseName, cancelDate } = input;
+  const {
+    courseName,
+    cancelDate,
+    busFee,
+    bankName,
+    bankAccountNumber,
+    bankAccountName,
+  } = input;
   return {
     subject: `[Khóa tu ${courseName}] Thư nhắc v/v chưa đăng ký thành công Khoá tu`,
     content: `
@@ -638,12 +649,17 @@ function testSendBusFeePaymentReminder() {
     if (row === 0) continue;
 
     const rowData = allData[row];
+    const vehicle = rowData[1]; // Column B
+    const byBus = vehicle === "Đi ô tô cùng Đoàn";
+    const sentReminderMail = rowData[14]; // Column O
     const email = rowData[10]; // Column K
 
+    if (sentReminderMail === "x" || !email || !byBus) {
+      console.log(`testSendBusFeePaymentReminder: already sent or invalid`);
+      continue;
+    }
     sendBusFeePaymentReminder(sheet, row, email);
-    console.log(
-      `testSendBusFeePaymentReminder: send payment reminder mail to ${email}`
-    );
+    console.log(`testSendBusFeePaymentReminder: sent`);
   }
 }
 
@@ -652,6 +668,10 @@ function sendBusFeePaymentReminder(sheet, row, email) {
   const paymentReminderMail = createPaymentReminderMail({
     courseName: savedDataMap.get("courseName"),
     cancelDate: formatDate(savedDataMap.get("cancelDate")),
+    busFee: savedDataMap.get("busFee"),
+    bankName: savedDataMap.get("bankName"),
+    bankAccountNumber: savedDataMap.get("bankAccountNumber"),
+    bankAccountName: savedDataMap.get("bankAccountName"),
   });
   try {
     GmailApp.sendEmail(email, paymentReminderMail.subject, "", {
