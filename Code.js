@@ -543,11 +543,16 @@ function execSendMail() {
     const confirmMailSent = rowData[13]; // Column N
     const sentReminderMail = rowData[14]; // Column O
 
-    if (
-      email &&
-      !confirmMailSent &&
-      (personalVehicle || (byBus && paidBusFee.includes("x")))
-    ) {
+    if (confirmMailSent.includes("x")) {
+      continue;
+    }
+
+    if (!email) {
+      console.log(`No email found for row ${row + 1}`);
+      continue;
+    }
+
+    if (personalVehicle || (byBus && paidBusFee.includes("x"))) {
       console.log(`Send successful registration email to: ${email}`);
       sendRegisterSuccessful({ sheet, row, email, byBus });
     }
@@ -562,8 +567,6 @@ function execSendMail() {
     if (
       byBus &&
       !paidBusFee.includes("x") &&
-      email &&
-      !confirmMailSent &&
       !sentReminderMail &&
       isLatePayment(paymentDeadline)
     ) {
