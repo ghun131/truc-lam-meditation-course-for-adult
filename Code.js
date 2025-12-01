@@ -243,9 +243,9 @@ function createSuccessVerificationByBusMail(input) {
         <p>- Đối tượng: ${targetAudience}</p>
         <p>- Số lượng: ${numberOfStudents} thiền sinh</p>
         <p>- Yêu cầu: Cam kết tham gia đủ ${calculateNumberOfDays(
-          startDate,
-          endDate
-        )} ngày, tuân thủ nội quy khóa tu của Thiền Viện. Không sử dụng thiết bị điện tử cá nhân.</p>
+      startDate,
+      endDate
+    )} ngày, tuân thủ nội quy khóa tu của Thiền Viện. Không sử dụng thiết bị điện tử cá nhân.</p>
 
         <div class="section-title">2. THÔNG TIN DI CHUYỂN</div>
         <p>- Thời gian tập trung: <b>${busReadyTime} ngày ${startDate}</b></p>
@@ -395,9 +395,9 @@ function createSuccessVerificationOwnVehicleMail(input) {
       <p>- Số lượng: ${numberOfStudents} thiền sinh</p>
       <p>- Thời gian tập trung: Thiền sinh hoan hỉ có mặt tại giảng đường Thiền Viện <b>trước ${arrivalTime}</b> để hoàn tất đăng ký và làm thủ tục nhập khóa.</p>
       <p>- Yêu cầu: Cam kết tham gia đủ ${calculateNumberOfDays(
-        startDate,
-        endDate
-      )} ngày, tuân thủ nội quy khóa tu của Thiền Viện. Không sử dụng thiết bị điện tử cá nhân.</p>
+      startDate,
+      endDate
+    )} ngày, tuân thủ nội quy khóa tu của Thiền Viện. Không sử dụng thiết bị điện tử cá nhân.</p>
 
       <div class="section-title">2. TÀI LIỆU THAM KHẢO TRƯỚC KHÓA TU</div>
       <p>- <a href="http://www.thuongchieu.net/index.php/toathien">Phương pháp toạ thiền theo đường lối Thiền tông Việt Nam</a> - H.T Thích Thanh Từ</p>
@@ -538,21 +538,18 @@ function execSendMail() {
     const email = rowData[10]; // Column K
     const vehicle = rowData[1]; // Column B
     const byBus = vehicle === "Đi ô tô cùng Đoàn";
-    const paidBusFee = rowData[12]; // Column M
+    const paidBusFee = rowData[12] ?
+      rowData[12].toLowerCase() :
+      ''; // Column M
     const personalVehicle = vehicle === "Tự túc phương tiện";
     const confirmMailSent = rowData[13]; // Column N
     const sentReminderMail = rowData[14]; // Column O
 
-    if (confirmMailSent.includes("x")) {
-      continue;
-    }
-
-    if (!email) {
-      console.log(`No email found for row ${row + 1}`);
-      continue;
-    }
-
-    if (personalVehicle || (byBus && paidBusFee.includes("x"))) {
+    if (
+      email &&
+      !confirmMailSent &&
+      (personalVehicle || (byBus && paidBusFee.includes("x")))
+    ) {
       console.log(`Send successful registration email to: ${email}`);
       sendRegisterSuccessful({ sheet, row, email, byBus });
     }
@@ -567,6 +564,8 @@ function execSendMail() {
     if (
       byBus &&
       !paidBusFee.includes("x") &&
+      email &&
+      !confirmMailSent &&
       !sentReminderMail &&
       isLatePayment(paymentDeadline)
     ) {
@@ -657,7 +656,7 @@ function testSendBusFeePaymentReminder() {
     const sentReminderMail = rowData[14]; // Column O
     const email = rowData[10]; // Column K
 
-    if (sentReminderMail === "x" || !email || !byBus) {
+    if (sentReminderMail.toLowerCase() === "x" || !email || !byBus) {
       console.log(`testSendBusFeePaymentReminder: already sent or invalid`);
       continue;
     }
@@ -739,8 +738,7 @@ function cloneSheetData(sourceSheet, targetSheet) {
     sourceHeaderRange.copyTo(targetHeaderRange);
 
     console.log(
-      `Đã sao chép ${
-        sourceData.length
+      `Đã sao chép ${sourceData.length
       } hàng từ "${sourceSheet.getName()}" sang "${targetSheet.getName()}"`
     );
     return sourceData.length;
