@@ -2,6 +2,7 @@ function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu("Khoá tu")
     .addItem("Tạo danh sách gửi mail", "initDanhSachGuiMailSheet")
+    .addItem("Đồng bộ form từ sheet lưu trữ", "syncFormFromSavedData")
     .addItem("Sync danh sách gửi mail", "syncDanhSachGuiMailSheet")
     .addItem("Lọc trùng thiền sinh", "filterDuplicate")
     .addToUi();
@@ -95,6 +96,64 @@ function syncDanhSachGuiMailSheet() {
   const sheet = ss.getSheetByName("Danh sách gửi mail");
   const sourceSheet = ss.getSheetByName("Câu trả lời biểu mẫu 1");
   cloneSheetData(sourceSheet, sheet);
+}
+
+function syncFormFromSavedData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Lưu trữ");
+  const savedData = sheet
+    .getRange(1, 1, sheet.getLastRow(), sheet.getLastColumn())
+    .getValues();
+  const savedDataMap = getSavedDataCode(savedData);
+  const courseNameObj = savedDataMap.get("courseName");
+  const formId = savedDataMap.get("formId").value;
+
+  const form = FormApp.openById(formId);
+  let desc = form.getDescription();
+  if (desc.includes(courseNameObj.key)) {
+    desc = replaceTextInDescription(desc, savedDataMap);
+    form.setDescription(desc);
+
+    // console.log(`Updated form description: ${desc}`);
+  }
+
+  const blocks = form.getItems();
+
+  for (let i = 0; i < blocks.length; ++i) {
+    const block = blocks[i];
+
+    if ([3, 6].includes(i)) {
+      let curBlock = null;
+
+      if (block.getType() === FormApp.ItemType.IMAGE) {
+        curBlock = block.asImageItem();
+        const blockTitle = replaceTextInDescription(curBlock.getTitle(), savedDataMap);
+        curBlock.setTitle(blockTitle);
+        console.log(`Updated block ${curBlock.getTitle()} with ${blockTitle}`);
+      }
+      if (block.getType() === FormApp.ItemType.PAGE_BREAK) {
+        curBlock = block.asPageBreakItem();
+        const blockDesc = replaceTextInDescription(curBlock.getHelpText(), savedDataMap);
+        curBlock.setHelpText(blockDesc);
+        console.log(`Updated block ${curBlock.getTitle()} with ${blockDesc}`);
+      }
+
+    }
+  }
+}
+
+function replaceTextInDescription(desc, savedDataMap) {
+  savedDataMap.forEach((sValue) => {
+    if (desc.includes(sValue.key)) {
+      const currValue = sValue.value instanceof Date ?
+        `${sValue.value.getDate()}/${sValue.value.getMonth() + 1}/${sValue.value.getFullYear()}` :
+        sValue.value;
+
+      desc = desc.replaceAll(sValue.key, currValue);
+    }
+  })
+
+  return desc;
 }
 
 function filterDuplicate() {
@@ -766,7 +825,7 @@ function initLuuTruSheet(ss) {
       "LINK_DIA_DIEM_TAP_TRUNG"
     ], // Row 6
     ["Thời gian tập trung", "6h00", "THOI_GIAN_TAP_TRUNG"], // Row 7
-    ["Thời gian xe xuất phát", "7h00", "THOI_GIAN_XE_XUAT_PHA"], // Row 8
+    ["Thời gian xe xuất phát", "7h00", "THOI_GIAN_XE_XUAT_PHAT"], // Row 8
     ["Thời gian có mặt tại thiền viện", "9h00", "THOI_GIAN_CO_MAT"], // Row 9
     ["Hạn chót ngày huỷ đăng ký cho thiền sinh", new Date(2025, 7, 25), "HAN_CHOT"], // Row 10
     ["Link nhóm Zalo", "https://www.google.com", "LINK_NHOM_ZALO"], // Row 11
@@ -775,15 +834,19 @@ function initLuuTruSheet(ss) {
     ["Tên đường dây nóng 2", "Phật tử Chân Mỹ Nghiêm", "TEN_DUONG_DAY_NONG_2"], // Row 14
     ["Số điện thoại", "0848 349 129", "SO_DIEN_THOAI_2"], // Row 15
     ["Lệ phí đi xe đoàn (1 người/2 chiều)", "180,000 VND", "LEPHI_XE_DOAN"], // Row 16
-    ["Ngân hàng người chịu trách nhiệm nhận tiền", "VIETINBANK", "TK_NGAN_HANG"], // Row 17
+    ["Ngân hàng người chịu trách nhiệm nhận tiền", "VIETINBANK", "TKNH"], // Row 17
     ["Tên chủ tài khoản ", "Mẫn Thị Thảo", "CHU_TK_NGAN_HANG"], // Row 18
-    ["Số tài khoản", "123456789", "SO_TK_NGAN_HANG"], // Row 19
+    ["Số tài khoản", "123456789", "SO_TK_NH"], // Row 19
     ["Ngày nhắc thanh toán tiền", new Date(2025, 7, 20), "NGAY_NHAC_THANH_TOAN"], // Row 20
     [
       "Link ảnh trên mail",
       "https://ghun131.github.io/meditation-course-images/ktmh_khoa_5_2025.jpg",
       "LINK_ANH_MAIL"
     ], // Row 21
+    ["Form Id", "", "FORM_ID"], // Row 22
+    ["Giờ kết thúc khoá tu", "17h", "GIO_KET_THUC"], // Row 23
+    ["Số ngày tham gia tu tập", 5, "SO_NGAY_TU"], // Row 24
+    ["Ngày thông báo", new Date(2025, 7, 10), "NGAY_THONG_BAO"], // Row 25
   ];
 
   // Set the data
@@ -915,6 +978,44 @@ function getSavedData() {
     ["bankAccountNumber", savedData[19][1]], // Số tài khoản ngân hàng
     ["deadlinePayment", savedData[20][1]], // Hạn chót thanh toán
     ["imageLink", savedData[21][1]], // Link ảnh trên mail
+  ]);
+
+  return result;
+}
+
+function getSavedDataCode() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Lưu trữ");
+  const savedData = sheet
+    .getRange(1, 1, sheet.getLastRow(), sheet.getLastColumn())
+    .getValues();
+
+  const result = new Map([
+    ["courseName", { value: savedData[0][1], key: savedData[0][2] }],
+    ["startDate", { value: savedData[1][1], key: savedData[1][2] }], // Ngày bắt đầu
+    ["endDate", { value: savedData[2][1], key: savedData[2][2] }], // Ngày kết thúc
+    ["targetAudience", { value: savedData[3][1], key: savedData[3][2] }], // Đối tượng
+    ["numberOfStudents", { value: savedData[4][1], key: savedData[4][2] }], // Số lượng thiền sinh
+    ["busLocation", { value: savedData[5][1], key: savedData[5][2] }], // Địa điểm tập trung đi xe đoàn
+    ["busMapLink", { value: savedData[6][1], key: savedData[6][2] }], // Link địa điểm tập trung đi xe đoàn
+    ["busReadyTime", { value: savedData[7][1], key: savedData[7][2] }], // Thời gian tập trung xe đoàn
+    ["busStartTime", { value: savedData[8][1], key: savedData[8][2] }], // Thời gian xe đoàn xuất phát
+    ["arrivalTime", { value: savedData[9][1], key: savedData[9][2] }], // Thời gian có mặt tại thiền viện
+    ["cancelDate", { value: savedData[10][1], key: savedData[10][2] }], // Hạn chót ngày huỷ đăng ký cho thiền sinh
+    ["zaloGroupLink", { value: savedData[11][1], key: savedData[11][2] }], // Link nhóm Zalo
+    ["contactName", { value: savedData[12][1], key: savedData[12][2] }], // Tên người liên hệ 1
+    ["contactPhone", { value: savedData[13][1], key: savedData[13][2] }], // Số điện thoại 1
+    ["contactName2", { value: savedData[14][1], key: savedData[14][2] }], // Tên người liên hệ 2
+    ["contactPhone2", { value: savedData[15][1], key: savedData[15][2] }], // Số điện thoại 2
+    ["busFee", { value: savedData[16][1], key: savedData[16][2] }], // Lệ phí xe đoàn
+    ["bankName", { value: savedData[17][1], key: savedData[17][2] }], // Tên ngân hàng
+    ["bankAccountName", { value: savedData[18][1], key: savedData[18][2] }], // Tên tài khoản ngân hàng
+    ["bankAccountNumber", { value: savedData[19][1], key: savedData[19][2] }], // Số tài khoản ngân hàng
+    ["deadlinePayment", { value: savedData[20][1], key: savedData[20][2] }], // Hạn chót thanh toán
+    ["imageLink", { value: savedData[21][1], key: savedData[21][2] }], // Link ảnh trên mail
+    ["formId", { value: savedData[22][1], key: 'FORM_ID' }], // ID form
+    ["endingTime", { value: savedData[23][1], key: savedData[23][2] }], // Giờ kết thúc khoá tu
+    ["numberOfDays", { value: savedData[24][1], key: savedData[24][2] }], // Số ngày tham gia tu tập
+    ["announcementDate", { value: savedData[25][1], key: savedData[25][2] }], // Ngày thông báo
   ]);
 
   return result;
