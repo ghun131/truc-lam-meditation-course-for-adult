@@ -750,41 +750,44 @@ function initLuuTruSheet(ss) {
 
   // Define the data to populate (label, value)
   const data = [
-    ["Tên khoá tu", "Tuệ Giác VI"], // Row 0
-    ["Ngày bắt đầu", new Date(2025, 7, 12)], // Row 1
-    ["Ngày kết thúc", new Date(2025, 7, 16)], // Row 2
-    ["Đối tượng", "Nam, Nữ, sinh năm 1990 - năm 2008"], // Row 3
-    ["Số lượng thiền sinh", 300], // Row 4
+    ["Tên khoá tu", "Tuệ Giác VI", "TEN_KT"], // Row 0
+    ["Ngày bắt đầu", new Date(2025, 7, 12), "NGAY_BAT_DAU"], // Row 1
+    ["Ngày kết thúc", new Date(2025, 7, 16), "NGAY_KET_THUC"], // Row 2
+    ["Đối tượng", "Nam, Nữ, sinh năm 1990 - năm 2008", "DOI_TUONG"], // Row 3
+    ["Số lượng thiền sinh", 300, "SO_LUONG_TS"], // Row 4
     [
       "Địa điểm tập trung đi xe đoàn",
       "cổng Đông công viên Hoà Bình, đường Đỗ Nhuận, Bắc Từ Liêm, Hà Nội (Đối diện bệnh viện Mặt Trời - SunGroup)",
+      "DIA_DIEM_TAP_TRUNG"
     ], // Row 5
     [
       "Link địa điểm tập trung đi xe đoàn",
       "https://maps.app.goo.gl/UprGfvKKzuKrwoQr7",
+      "LINK_DIA_DIEM_TAP_TRUNG"
     ], // Row 6
-    ["Thời gian tập trung", "6h00"], // Row 7
-    ["Thời gian xe xuất phát", "7h00"], // Row 8
-    ["Thời gian có mặt tại thiền viện", "9h00"], // Row 9
-    ["Hạn chót ngày huỷ đăng ký cho thiền sinh", new Date(2025, 7, 25)], // Row 10
-    ["Link nhóm Zalo", "https://www.google.com"], // Row 11
-    ["Tên đường dây nóng 1", "Phật tử Diệu Từ"], // Row 12
-    ["Số điện thoại", "0988 237 713"], // Row 13
-    ["Tên đường dây nóng 2", "Phật tử Chân Mỹ Nghiêm"], // Row 14
-    ["Số điện thoại", "0848 349 129"], // Row 15
-    ["Lệ phí đi xe đoàn (1 người/2 chiều)", "180,000 VND"], // Row 16
-    ["Ngân hàng người chịu trách nhiệm nhận tiền", "VIETINBANK"], // Row 17
-    ["Tên chủ tài khoản ", "Mẫn Thị Thảo"], // Row 18
-    ["Số tài khoản", "123456789"], // Row 19
-    ["Ngày nhắc thanh toán tiền", new Date(2025, 7, 20)], // Row 20
+    ["Thời gian tập trung", "6h00", "THOI_GIAN_TAP_TRUNG"], // Row 7
+    ["Thời gian xe xuất phát", "7h00", "THOI_GIAN_XE_XUAT_PHA"], // Row 8
+    ["Thời gian có mặt tại thiền viện", "9h00", "THOI_GIAN_CO_MAT"], // Row 9
+    ["Hạn chót ngày huỷ đăng ký cho thiền sinh", new Date(2025, 7, 25), "HAN_CHOT"], // Row 10
+    ["Link nhóm Zalo", "https://www.google.com", "LINK_NHOM_ZALO"], // Row 11
+    ["Tên đường dây nóng 1", "Phật tử Diệu Từ", "TEN_DUONG_DAY_NONG_1"], // Row 12
+    ["Số điện thoại", "0988 237 713", "SO_DIEN_THOAI_1"], // Row 13
+    ["Tên đường dây nóng 2", "Phật tử Chân Mỹ Nghiêm", "TEN_DUONG_DAY_NONG_2"], // Row 14
+    ["Số điện thoại", "0848 349 129", "SO_DIEN_THOAI_2"], // Row 15
+    ["Lệ phí đi xe đoàn (1 người/2 chiều)", "180,000 VND", "LEPHI_XE_DOAN"], // Row 16
+    ["Ngân hàng người chịu trách nhiệm nhận tiền", "VIETINBANK", "TK_NGAN_HANG"], // Row 17
+    ["Tên chủ tài khoản ", "Mẫn Thị Thảo", "CHU_TK_NGAN_HANG"], // Row 18
+    ["Số tài khoản", "123456789", "SO_TK_NGAN_HANG"], // Row 19
+    ["Ngày nhắc thanh toán tiền", new Date(2025, 7, 20), "NGAY_NHAC_THANH_TOAN"], // Row 20
     [
       "Link ảnh trên mail",
       "https://ghun131.github.io/meditation-course-images/ktmh_khoa_5_2025.jpg",
+      "LINK_ANH_MAIL"
     ], // Row 21
   ];
 
   // Set the data
-  const range = sheet.getRange(1, 1, data.length, 2);
+  const range = sheet.getRange(1, 1, data.length, 3);
   range.setValues(data);
 
   // Format the header row if you want
@@ -792,7 +795,7 @@ function initLuuTruSheet(ss) {
   headerRange.setFontWeight("bold");
 
   // Auto-resize columns
-  sheet.autoResizeColumns(1, 2);
+  sheet.autoResizeColumns(1, 3);
 
   console.log("Lưu trữ sheet initialized with configuration data");
 
