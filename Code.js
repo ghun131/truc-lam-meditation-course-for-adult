@@ -770,14 +770,15 @@ function isLatePayment(date) {
 
 function cloneSheetData(sourceSheet, targetSheet) {
   // Clone all data from source sheet
-  const sourceRange = sourceSheet.getDataRange();
+  const lastSelectedColumn = 12; // From column A to L, 12 questions
+  const sourceRange = sourceSheet.getRange(1, 1, sourceSheet.getLastRow(), lastSelectedColumn);
   if (sourceRange.getNumRows() > 0) {
     const sourceData = sourceRange.getValues();
     const targetRange = targetSheet.getRange(
       1,
       1,
       sourceData.length,
-      sourceData[0].length
+      lastSelectedColumn,
     );
     targetRange.setValues(sourceData);
 
@@ -786,13 +787,13 @@ function cloneSheetData(sourceSheet, targetSheet) {
       1,
       1,
       1,
-      sourceData[0].length
+      lastSelectedColumn
     );
     const targetHeaderRange = targetSheet.getRange(
       1,
       1,
       1,
-      sourceData[0].length
+      lastSelectedColumn
     );
     sourceHeaderRange.copyTo(targetHeaderRange);
 
