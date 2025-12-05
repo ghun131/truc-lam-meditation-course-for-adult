@@ -714,8 +714,15 @@ function testSendBusFeePaymentReminder() {
     const byBus = vehicle === "Đi ô tô cùng Đoàn";
     const sentReminderMail = rowData[14]; // Column O
     const email = rowData[10]; // Column K
+    const paid = rowData[12]; // Column M
+    const confirmMailSent = rowData[13]; // Column N
 
-    if (sentReminderMail.toLowerCase() === "x" || !email || !byBus) {
+    if (sentReminderMail.toLowerCase() === "x" ||
+      !email ||
+      !byBus ||
+      paid.toLowerCase() === "x" ||
+      confirmMailSent.toLowerCase() === "x"
+    ) {
       console.log(`testSendBusFeePaymentReminder: already sent or invalid`);
       continue;
     }
