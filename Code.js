@@ -113,8 +113,6 @@ function syncFormFromSavedData() {
   if (desc.includes(courseNameObj.key)) {
     desc = replaceTextInDescription(desc, savedDataMap);
     form.setDescription(desc);
-
-    // console.log(`Updated form description: ${desc}`);
   }
 
   const blocks = form.getItems();
@@ -243,6 +241,7 @@ function createSuccessVerificationByBusMail(input) {
     contactPhone2,
     cancelDate,
     imageLink,
+    endTime,
   } = input;
   return {
     subject: `[Khóa tu ${courseName}] Xác nhận đăng ký thành công - thiền sinh đi ô tô với Đoàn`,
@@ -310,7 +309,7 @@ function createSuccessVerificationByBusMail(input) {
         <p>- Thời gian tập trung: <b>${busReadyTime} ngày ${startDate}</b></p>
         <p>- Địa điểm: ${busLocation}. <a href="${busMapLink}">Định vị Google Maps</a></p>
         <p>- Thời gian xe xuất phát lên Thiền viện: <b>${busStartTime} cùng ngày</b></p>
-        <p>- Thời gian kết thúc khóa tu, di chuyển về Hà Nội: <b>${endDate}</b>.</p>
+        <p>- Thời gian kết thúc khóa tu, di chuyển về Hà Nội: <b>${endTime} ngày ${endDate}</b>.</p>
         <p>- Thiền sinh cân nhắc trước khi đăng ký, Đoàn sẽ chỉ có thể hỗ trợ hoàn trả lệ phí đối với các trường hợp huỷ trước ngày <b>${cancelDate}</b>.</p>
         <p>- Thiền sinh hoan hỉ di chuyển tới địa điểm tập trung sớm hơn để tránh rơi vào tình trạng ùn tắc. Đoàn sẽ xuất phát theo đúng lịch trình và không chờ những trường hợp tới muộn.</p>
         <div class="section-title">3. TÀI LIỆU THAM KHẢO TRƯỚC KHÓA TU</div>
@@ -661,6 +660,7 @@ function sendRegisterSuccessful({ sheet, row, email, byBus }) {
   };
   const successVerificationByBusMail = createSuccessVerificationByBusMail({
     ...commonData,
+    endTime: savedDataMap.get("endTime"),
     busReadyTime: savedDataMap.get("busReadyTime"),
     busStartTime: savedDataMap.get("busStartTime"),
     busLocation: savedDataMap.get("busLocation"),
@@ -986,6 +986,10 @@ function getSavedData() {
     ["bankAccountNumber", savedData[19][1]], // Số tài khoản ngân hàng
     ["deadlinePayment", savedData[20][1]], // Hạn chót thanh toán
     ["imageLink", savedData[21][1]], // Link ảnh trên mail
+    ["formId", savedData[22][1]], // Form Id
+    ["endTime", savedData[23][1]], // Giờ kết thúc khoá tu
+    ["numbefOfMeditationDays", savedData[24][1]], // Số ngày tham gia tu tập
+    ["announcementDate", savedData[25][1]], // Ngày thông báo
   ]);
 
   return result;
@@ -1021,8 +1025,8 @@ function getSavedDataCode() {
     ["deadlinePayment", { value: savedData[20][1], key: savedData[20][2] }], // Hạn chót thanh toán
     ["imageLink", { value: savedData[21][1], key: savedData[21][2] }], // Link ảnh trên mail
     ["formId", { value: savedData[22][1], key: 'FORM_ID' }], // ID form
-    ["endingTime", { value: savedData[23][1], key: savedData[23][2] }], // Giờ kết thúc khoá tu
-    ["numberOfDays", { value: savedData[24][1], key: savedData[24][2] }], // Số ngày tham gia tu tập
+    ["endTime", { value: savedData[23][1], key: savedData[23][2] }], // Giờ kết thúc khoá tu
+    ["numbefOfMeditationDays", { value: savedData[24][1], key: savedData[24][2] }], // Số ngày tham gia tu tập
     ["announcementDate", { value: savedData[25][1], key: savedData[25][2] }], // Ngày thông báo
   ]);
 
