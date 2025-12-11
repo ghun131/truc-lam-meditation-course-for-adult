@@ -848,7 +848,7 @@ function initLuuTruSheet(ss) {
     ["Ngày nhắc thanh toán tiền", new Date(2025, 7, 20), "NGAY_NHAC_THANH_TOAN"], // Row 20
     [
       "Link ảnh trên mail",
-      "https://ghun131.github.io/meditation-course-images/ktmh_khoa_5_2025.jpg",
+      "https://ghun131.github.io/meditation-course-images/khoa_tu_default_img.jpg",
       "LINK_ANH_MAIL"
     ], // Row 21
     ["Form Id", "", "FORM_ID"], // Row 22
