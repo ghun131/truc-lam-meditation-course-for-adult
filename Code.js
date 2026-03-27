@@ -28,6 +28,7 @@ function initDanhSachGuiMailSheet() {
       "Không tìm thấy sheet 'Câu trả lời biểu mẫu 1' để sao chép dữ liệu!"
     );
   }
+  initGhiNhanChuyenKhoan(ss);
 
   if (Boolean(sheet) && Boolean(savingSheet)) {
     return;
@@ -88,6 +89,55 @@ function initDanhSachGuiMailSheet() {
     console.log("All required columns already exist in the sheet.");
   }
 
+  return sheet;
+}
+
+function initGhiNhanChuyenKhoan(
+  ss = SpreadsheetApp.getActiveSpreadsheet()
+) {
+
+  const GHI_NHAN_CHUYEN_KHOAN_SHEET_NAME = "Ghi nhận chuyển khoản";
+  const GHI_NHAN_CHUYEN_KHOAN_HEADERS = [
+    "thời gian",
+    "id người dùng telegram",
+    "id tin nhắn",
+    "số tiền",
+    "đơn vị tiền",
+    "tên ngân hàng",
+    "tên người gửi",
+    "tên người nhận",
+    "mã giao dịch",
+    "thời gian giao dịch",
+    "nội dung",
+    "độ tin cậy",
+    "đường dẫn cloudinary",
+    "dữ liệu json gốc",
+  ];
+  let sheet = ss.getSheetByName(GHI_NHAN_CHUYEN_KHOAN_SHEET_NAME);
+  if (sheet) {
+    console.log(`Sheet "${GHI_NHAN_CHUYEN_KHOAN_SHEET_NAME}" already exists.`);
+    return sheet;
+  }
+
+  sheet = ss.insertSheet(GHI_NHAN_CHUYEN_KHOAN_SHEET_NAME);
+  const headerRange = sheet.getRange(
+    1,
+    1,
+    1,
+    GHI_NHAN_CHUYEN_KHOAN_HEADERS.length
+  );
+  headerRange.setValues([GHI_NHAN_CHUYEN_KHOAN_HEADERS]);
+  headerRange.setFontWeight("bold");
+  headerRange.setFontColor("white");
+  headerRange.setBackground("#5b3f86");
+  headerRange.setBorder(true, true, true, true, true, true);
+
+  sheet.setFrozenRows(1);
+  sheet.autoResizeColumns(1, GHI_NHAN_CHUYEN_KHOAN_HEADERS.length);
+
+  console.log(
+    `Đã tạo sheet "${GHI_NHAN_CHUYEN_KHOAN_SHEET_NAME}" với ${GHI_NHAN_CHUYEN_KHOAN_HEADERS.length} cột.`
+  );
   return sheet;
 }
 
