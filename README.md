@@ -1,8 +1,12 @@
 # TODOs
-- [x] Create a sheet called `Danh sách gửi mail`
-- [x] Clone data from original sheet to another
-- [x] Get sheet by name, not by using `getActiveSheet`# truc-lam-meditation-course-for-adult
-- [x] Filter duplicated names and date of birth for kids
-- [x] Dynamic content such as current year, target students..., etc coming from "Lưu trữ" 
-- [x] Apply dynamic content to the form so that the user only needs to fill data to the sheet "Lưu trữ"
-- [ ] Update `testSendBusFeePaymentReminder` function to remind payment about 2 days after registration but still before payment deadline
+1. [x] Create a sheet called `Danh sách gửi mail`
+2. [x] Clone data from original sheet to another
+3. [x] Get sheet by name, not by using `getActiveSheet`# truc-lam-meditation-course-for-adult
+4. [x] Filter duplicated names and date of birth for kids
+5. [x] Dynamic content such as current year, target students..., etc coming from "Lưu trữ" 
+6. [x] Apply dynamic content to the form so that the user only needs to fill data to the sheet "Lưu trữ"
+7. [ ] Update Code.js to adapt to many different types of sheets. Below is the list of sheets:
+    1. [ ] 
+8. [ ] Create an init function called "initGhiNhanChuyenKhoan" to create "Ghi nhận chuyển khoản" sheet in "Khoá tu" menu. The sheet should have these columns: `["thời gian", "id người dùng telegram", "id tin nhắn", "số tiền", "đơn vị tiền", "tên ngân hàng", "tên người gửi", "tên người nhận", "mã giao dịch", "thời gian giao dịch", "nội dung", "độ tin cậy", "đường dẫn cloudinary", "dữ liệu json gốc"]`
+9. [ ] Have a function to get data from "Ghi nhận chuyển khoản" sheet and update the "Danh sách gửi mail" sheet so that the "Đã chuyển khoản" column is updated properly. This function will get run every 4 hours
+10. [ ] Create passengers list for each bus. Even when there are many buses, they all must live in only one sheet
