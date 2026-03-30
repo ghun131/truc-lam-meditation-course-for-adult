@@ -5,7 +5,7 @@
 4. [x] Filter duplicated names and date of birth for kids
 5. [x] Dynamic content such as current year, target students..., etc coming from "Lưu trữ" 
 6. [x] Apply dynamic content to the form so that the user only needs to fill data to the sheet "Lưu trữ"
-7. [ ] Have a function to get data from "Sao kê" sheet and update the "Danh sách gửi mail" sheet so that the "Đã chuyển khoản" column is updated properly. This function will get run every 4 hours
+7. [x] Have a function to get data from "Sao kê" sheet and update the "Danh sách gửi mail" sheet so that the "Đã chuyển khoản" column is updated properly. This function will get run every 4 hours
     - In "Sao kê" sheet, grab the content of transfer note which is a merged cell from multiple cells spanning from column Y to AF. It has the structure "<sender name> - <phone number> - <code>" for example "Đặng Hưng - 0375072848 - ts". Only take the data that has this structure
     - In "Sao kê" sheet, grab the transfer amount which is probably a string that is separate by comma in a merged cell of columns from AT to BA. 
     - After grabbing these data, process the string to extract the phone number. Use this phone number to loop over every row in "Danh sách gửi mail" sheet to find the matching row. If the phone number is found, update the "Đã chuyển khoản" column with letter "x". Highlight the row in "Sao kê" with green background color

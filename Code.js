@@ -2,7 +2,8 @@ function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu("Khoá tu")
     .addItem("Tạo danh sách gửi mail", "initDanhSachGuiMailSheet")
-    .addItem("Đồng bộ form từ sheet lưu trữ", "syncFormFromSavedData")
+    .addItem("Điền dữ liệu form từ sheet lưu trữ", "syncFormFromSavedData")
+    .addItem("Sync chuyển khoản từ Sao kê", "syncPaymentFromSaoKe")
     .addItem("Sync danh sách gửi mail", "syncDanhSachGuiMailSheet")
     .addItem("Lọc trùng thiền sinh", "filterDuplicate")
     .addToUi();
@@ -219,6 +220,99 @@ function filterDuplicate() {
       }
     }
   }
+}
+
+function syncPaymentFromSaoKe() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const saoKeSheet = ss.getSheetByName("Sao kê");
+  const danhSachSheet = ss.getSheetByName("Danh sách gửi mail");
+
+  if (!saoKeSheet) {
+    console.log("Không tìm thấy sheet 'Sao kê'!");
+    return;
+  }
+  if (!danhSachSheet) {
+    console.log("Không tìm thấy sheet 'Danh sách gửi mail'!");
+    return;
+  }
+
+  const saoKeLastRow = saoKeSheet.getLastRow();
+  if (saoKeLastRow < 2) return;
+
+  const transferNoteColIdx = 17;
+  const transferAmountColIdx = 31;
+
+  const danhSachLastRow = danhSachSheet.getLastRow();
+  const danhSachLastCol = danhSachSheet.getLastColumn();
+  const danhSachData = danhSachSheet
+    .getRange(1, 1, danhSachLastRow, danhSachLastCol)
+    .getValues();
+
+  const hIndice = getHeadersIndices(danhSachData[0]);
+  const paymentIdx = hIndice.get("payment");
+  const phoneIdx = hIndice.get("phoneNumber");
+
+  if (paymentIdx === undefined) {
+    console.log(
+      "Không tìm thấy cột 'Đã chuyển khoản' trong sheet 'Danh sách gửi mail'!");
+    return;
+  }
+  if (phoneIdx === undefined) {
+    console.log(
+      "Không tìm thấy cột số điện thoại trong sheet 'Danh sách gửi mail'!");
+    return;
+  }
+
+  // Read sao ke up to column BA (53 columns)
+  const saoKeData = saoKeSheet
+    .getRange(2, 1, saoKeLastRow - 1, 53)
+    .getValues();
+
+  // Transfer note format: "Sender Name - PhoneNumber - Code"
+  const transferNoteRegex = /^.+\s*-\s*((?:0|\+84)\d{8,10})\s*-\s*.+$/;
+
+  const savedData = getSavedData();
+  const busFee = Number(savedData.get("busFee").toLowerCase().split("vnd")[0].split(",").join(""))
+
+  let updatedCount = 0;
+
+  for (let i = 0; i < saoKeData.length; i++) {
+    const row = saoKeData[i];
+    const transferNote = row[transferNoteColIdx];
+    if (!transferNote || typeof transferNote !== "string") continue;
+
+    const note = transferNote.trim();
+    const match = note.match(transferNoteRegex);
+    if (!match) continue;
+
+    const phoneNumber = match[1].trim().replace(/\s+/g, "").substring(1);
+
+    const transferAmount = row[transferAmountColIdx];
+    if (!transferAmount || typeof transferAmount !== "string") continue;
+    const amount = Number(transferAmount.split(',').join(''))
+    if (amount !== busFee) continue;
+
+    let found = false;
+    for (let j = 1; j < danhSachData.length; j++) {
+      const rowPhone = String(danhSachData[j][phoneIdx])
+        .trim()
+        .replace(/\s+/g, "");
+      if (rowPhone === phoneNumber) {
+        console.log('syncPaymentFromSaoKe', note);
+        danhSachSheet.getRange(j + 1, paymentIdx + 1).setValue("x");
+        found = true;
+      }
+    }
+
+    if (found) {
+      saoKeSheet
+        .getRange(i + 2, 1, 1, saoKeSheet.getLastColumn())
+        .setBackground("#00FF00");
+      updatedCount++;
+    }
+  }
+
+  console.log(`Đã cập nhật ${updatedCount} dòng chuyển khoản.`);
 }
 
 // ------------ EMAIL TEMPLATE FUNCTIONS ------------
@@ -951,6 +1045,15 @@ function getHeadersIndices(headerData) {
 
     if (header === "ngày/tháng/năm sinh của bạn") {
       result.set("dateOfBirth", i);
+    }
+
+    if (
+      header.includes("số điện thoại") ||
+      header.includes("phone") ||
+      header.includes("sdt")
+    ) {
+      console.log('header', header, i)
+      result.get("phoneNumber") ? null : result.set("phoneNumber", i);
     }
   }
 
