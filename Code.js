@@ -6,6 +6,7 @@ function onOpen() {
     .addItem("Sync chuyển khoản từ Sao kê", "syncPaymentFromSaoKe")
     .addItem("Sync danh sách gửi mail", "syncDanhSachGuiMailSheet")
     .addItem("Lọc trùng thiền sinh", "filterDuplicate")
+    .addItem("Tạo danh sách xe", "generateDanhSachXe")
     .addToUi();
 
   ui.createMenu("Chạy chủ động")
@@ -984,10 +985,10 @@ function getHeadersIndices(headerData) {
     const header = headerData[i].toLowerCase();
 
     if (
-      ["phương tiện", "cách thức", "hình thức"].some((val) =>
+      ["phương tiện", "cách thức", "hình thức", "phương thức"].some((val) =>
         header.includes(val)
       ) &&
-      (header.includes("di chuyển") || header.includes("đi lại"))
+      (header.includes("di chuyển") || header.includes("đi lại") || header.includes("di chuyển lên"))
     ) {
       result.set("vehicle", i);
     }
@@ -1054,6 +1055,10 @@ function getHeadersIndices(headerData) {
     ) {
       console.log('header', header, i)
       result.get("phoneNumber") ? null : result.set("phoneNumber", i);
+    }
+
+    if (header.includes("giới tính")) {
+      result.get("gender") ? null : result.set("gender", i);
     }
   }
 
@@ -1145,4 +1150,228 @@ function formatDate(dateObj) {
   const month = dateObj.getMonth() + 1 || "00";
   const year = dateObj.getFullYear() || "0000";
   return `${day}/${month}/${year}`;
+}
+
+// ------------ BUS LIST FUNCTIONS (ITEM 8) ------------
+
+function generateDanhSachXe() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  if (ss.getSheetByName("Danh sách xe")) {
+    ui.alert("Sheet 'Danh sach xe' đã tồn tại. Xóa sheet này trước khi tạo lại.");
+    return;
+  }
+
+  const sourceSheet = ss.getSheetByName("Danh sách gửi mail");
+  if (!sourceSheet) {
+    ui.alert("Không tìm thấy sheet 'Danh sách gửi mail'!");
+    return;
+  }
+
+  const lastRow = sourceSheet.getLastRow();
+  const lastCol = sourceSheet.getLastColumn();
+  if (lastRow < 2) {
+    ui.alert("Không có dữ liệu trong 'Danh sách gửi mail'!");
+    return;
+  }
+
+  const data = sourceSheet.getRange(1, 1, lastRow, lastCol).getValues();
+  const hIndice = getHeadersIndices(data[0]);
+
+  const vehicleIdx = hIndice.get("vehicle");
+  const paymentIdx = hIndice.get("payment");
+  const nameIdx = hIndice.get("studentIdx");
+  const dobIdx = hIndice.get("dateOfBirth");
+  const genderIdx = hIndice.get("gender");
+  const phoneIdx = hIndice.get("phoneNumber");
+
+  if (vehicleIdx === undefined) {
+    ui.alert("Không tìm thấy cột phương thức di chuyển trong 'Danh sách gửi mail'!");
+    return;
+  }
+  if (nameIdx === undefined) {
+    ui.alert("Không tìm thấy cột tên thiền sinh trong 'Danh sách gửi mail'!");
+    return;
+  }
+
+  const xeDoanPassengers = [];
+  const tuTucPassengers = [];
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const name = row[nameIdx] ? row[nameIdx].toString().trim() : "";
+    if (!name) continue;
+
+    const vehicle = vehicleIdx !== undefined ? row[vehicleIdx].toString().toLowerCase() : "";
+    const payment = paymentIdx !== undefined ? row[paymentIdx] : "";
+    const dob = dobIdx !== undefined ? row[dobIdx] : "";
+    const gender = genderIdx !== undefined ? row[genderIdx].toString().trim() : "";
+    const phone = phoneIdx !== undefined ? row[phoneIdx].toString().trim() : "";
+
+    const passenger = {
+      sourceRow: i,
+      name: name,
+      dob: dob instanceof Date ? formatDate(dob) : dob.toString(),
+      gender: gender,
+      phone: phone,
+      paid: payment === "x",
+    };
+
+    if (vehicle.includes("đoàn") || vehicle.includes("đi chung")) {
+      xeDoanPassengers.push(passenger);
+    } else if (vehicle.includes("tự túc")) {
+      tuTucPassengers.push(passenger);
+    }
+  }
+
+  const XE_DOAN_CAPACITY = 28;
+  const TU_TUC_CAPACITY = 30;
+
+  const xeDoanBuses = _allocateXeDoanBuses(xeDoanPassengers, XE_DOAN_CAPACITY);
+  const tuTucGroups = _allocateTuTucGroups(tuTucPassengers, TU_TUC_CAPACITY);
+
+  const blocks = [];
+  xeDoanBuses.forEach((bus, i) => {
+    blocks.push({ title: `DANH SÁCH XE ${i + 1}`, passengers: bus });
+  });
+  tuTucGroups.forEach((group, i) => {
+    blocks.push({ title: `DANH SÁCH ĐI TỰ TÚC ${i + 1}`, passengers: group });
+  });
+
+  if (blocks.length === 0) {
+    ui.alert("Không có thiền sinh nào đăng ký đi xe!");
+    return;
+  }
+
+  const outputSheet = ss.insertSheet("Danh sach xe");
+  _renderDanhSachXeSheet(outputSheet, blocks);
+
+  console.log(`Đã tạo Danh sach xe với ${blocks.length} nhóm.`);
+  ui.alert(`Đã tạo Danh sach xe thành công:\n- ${xeDoanBuses.length} xe đoàn (${xeDoanPassengers.length} thiền sinh)\n- ${tuTucGroups.length} nhóm tự túc (${tuTucPassengers.length} thiền sinh)`);
+}
+
+function _allocateXeDoanBuses(passengers, capacity) {
+  if (passengers.length === 0) return [];
+
+  const sorted = [...passengers].sort((a, b) => {
+    if (a.paid && !b.paid) return -1;
+    if (!a.paid && b.paid) return 1;
+    return a.sourceRow - b.sourceRow;
+  });
+
+  const males = sorted.filter(p => p.gender.toLowerCase() === "nam");
+  const females = sorted.filter(p => p.gender.toLowerCase() !== "nam");
+
+  const numBuses = Math.ceil(sorted.length / capacity);
+  const buses = Array.from({ length: numBuses }, () => []);
+
+  // Distribute males round-robin for even gender balance
+  males.forEach((m, i) => buses[i % numBuses].push(m));
+
+  // Fill remaining spots with females sequentially
+  let femaleIdx = 0;
+  for (let b = 0; b < numBuses && femaleIdx < females.length; b++) {
+    while (buses[b].length < capacity && femaleIdx < females.length) {
+      buses[b].push(females[femaleIdx++]);
+    }
+  }
+
+  return buses;
+}
+
+function _allocateTuTucGroups(passengers, capacity) {
+  if (passengers.length === 0) return [];
+
+  const sorted = [...passengers].sort((a, b) => {
+    if (a.paid && !b.paid) return -1;
+    if (!a.paid && b.paid) return 1;
+    return a.sourceRow - b.sourceRow;
+  });
+
+  const groups = [];
+  for (let i = 0; i < sorted.length; i += capacity) {
+    groups.push(sorted.slice(i, i + capacity));
+  }
+  return groups;
+}
+
+function _renderDanhSachXeSheet(sheet, blocks) {
+  const BLOCK_WIDTH = 5;
+  const SPACER_WIDTH = 1;
+  const BLOCK_STRIDE = BLOCK_WIDTH + SPACER_WIDTH;
+
+  // Row layout (0-indexed arrays, 1-indexed in sheet):
+  // 0: blank
+  // 1: global title
+  // 2: blank
+  // 3: block titles
+  // 4: Trưởng gia đình placeholders
+  // 5: Phó gia đình placeholders
+  // 6: blank
+  // 7: column headers
+  // 8+: passenger data
+  const HEADER_OFFSET = 8;
+
+  const maxPassengers = blocks.reduce((max, b) => Math.max(max, b.passengers.length), 0);
+  const totalRows = HEADER_OFFSET + maxPassengers;
+  const totalCols = blocks.length * BLOCK_STRIDE;
+
+  const grid = Array.from({ length: totalRows }, () => Array(totalCols).fill(""));
+
+  // Global title
+  grid[1][0] = "DANH SÁCH XE ĐOÀN";
+
+  blocks.forEach((block, bIdx) => {
+    const colStart = bIdx * BLOCK_STRIDE;
+
+    grid[3][colStart] = block.title;
+    grid[4][colStart] = "Trưởng gia đình: ";
+    grid[5][colStart] = "Phó gia đình: ";
+    grid[7][colStart] = "STT";
+    grid[7][colStart + 1] = "Họ và tên";
+    grid[7][colStart + 2] = "Ngày sinh";
+    grid[7][colStart + 3] = "Giới tính";
+    grid[7][colStart + 4] = "Số điện thoại";
+
+    block.passengers.forEach((p, pIdx) => {
+      const rowIdx = HEADER_OFFSET + pIdx;
+      grid[rowIdx][colStart] = pIdx + 1;
+      grid[rowIdx][colStart + 1] = p.name;
+      grid[rowIdx][colStart + 2] = p.dob;
+      grid[rowIdx][colStart + 3] = p.gender;
+      grid[rowIdx][colStart + 4] = p.phone;
+    });
+  });
+
+  sheet.getRange(1, 1, totalRows, totalCols).setValues(grid);
+
+  // Format global title
+  sheet.getRange(2, 1).setFontWeight("bold").setFontSize(14);
+
+  // Format per block
+  blocks.forEach((block, bIdx) => {
+    const colStart = bIdx * BLOCK_STRIDE;
+
+    // Block title bold
+    sheet.getRange(4, colStart + 1).setFontWeight("bold");
+
+    // Column headers
+    const headerRange = sheet.getRange(8, colStart + 1, 1, BLOCK_WIDTH);
+    headerRange.setFontWeight("bold");
+    headerRange.setBackground("#4a86e8");
+    headerRange.setFontColor("white");
+    headerRange.setBorder(true, true, true, true, true, true);
+
+    // Data rows border
+    if (block.passengers.length > 0) {
+      sheet.getRange(HEADER_OFFSET + 1, colStart + 1, block.passengers.length, BLOCK_WIDTH)
+        .setBorder(true, true, true, true, true, true);
+    }
+  });
+
+  // Auto-resize all columns
+  for (let c = 1; c <= totalCols; c++) {
+    sheet.autoResizeColumn(c);
+  }
 }
