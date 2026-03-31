@@ -240,7 +240,7 @@ function syncPaymentFromSaoKe() {
   if (saoKeLastRow < 2) return;
 
   const transferNoteColIdx = 17;
-  const transferAmountColIdx = 31;
+  const transferAmountColIdx = 37;
 
   const danhSachLastRow = danhSachSheet.getLastRow();
   const danhSachLastCol = danhSachSheet.getLastColumn();
