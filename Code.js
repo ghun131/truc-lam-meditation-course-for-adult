@@ -316,6 +316,105 @@ function syncPaymentFromSaoKe() {
   console.log(`Đã cập nhật ${updatedCount} dòng chuyển khoản.`);
 }
 
+function generateDanhSachXe() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  if (ss.getSheetByName("Danh sách xe")) {
+    ui.alert("Sheet 'Danh sach xe' đã tồn tại. Xóa sheet này trước khi tạo lại.");
+    return;
+  }
+
+  const sourceSheet = ss.getSheetByName("Danh sách gửi mail");
+  if (!sourceSheet) {
+    ui.alert("Không tìm thấy sheet 'Danh sách gửi mail'!");
+    return;
+  }
+
+  const lastRow = sourceSheet.getLastRow();
+  const lastCol = sourceSheet.getLastColumn();
+  if (lastRow < 2) {
+    ui.alert("Không có dữ liệu trong 'Danh sách gửi mail'!");
+    return;
+  }
+
+  const data = sourceSheet.getRange(1, 1, lastRow, lastCol).getValues();
+  const hIndice = getHeadersIndices(data[0]);
+
+  const vehicleIdx = hIndice.get("vehicle");
+  const paymentIdx = hIndice.get("payment");
+  console.log("🚀 ~ paymentIdx:", paymentIdx)
+  const nameIdx = hIndice.get("studentIdx");
+  const dobIdx = hIndice.get("dateOfBirth");
+  const genderIdx = hIndice.get("gender");
+  const phoneIdx = hIndice.get("phoneNumber");
+
+  if (vehicleIdx === undefined) {
+    ui.alert("Không tìm thấy cột phương thức di chuyển trong 'Danh sách gửi mail'!");
+    return;
+  }
+  if (nameIdx === undefined) {
+    ui.alert("Không tìm thấy cột tên thiền sinh trong 'Danh sách gửi mail'!");
+    return;
+  }
+
+  const xeDoanPassengers = [];
+  const tuTucPassengers = [];
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const name = row[nameIdx] ? row[nameIdx].toString().trim() : "";
+    if (!name) continue;
+
+    const vehicle = vehicleIdx !== undefined ? row[vehicleIdx].toString().toLowerCase() : "";
+    const payment = paymentIdx !== undefined ? row[paymentIdx] : "";
+    const dob = dobIdx !== undefined ? row[dobIdx] : "";
+    const gender = genderIdx !== undefined ? row[genderIdx].toString().trim() : "";
+    const phone = phoneIdx !== undefined ? row[phoneIdx].toString().trim() : "";
+
+    const passenger = {
+      sourceRow: i,
+      name: name,
+      dob: dob instanceof Date ? formatDate(dob) : dob.toString(),
+      gender: gender,
+      phone: phone,
+      paid: payment === "x",
+    };
+
+    if (vehicle.includes("đoàn") || vehicle.includes("đi chung")) {
+      xeDoanPassengers.push(passenger);
+    } else if (vehicle.includes("tự túc")) {
+      tuTucPassengers.push(passenger);
+    }
+  }
+
+  const XE_DOAN_CAPACITY = 28;
+  const TU_TUC_CAPACITY = 30;
+
+  const xeDoanBuses = _allocateXeDoanBuses(xeDoanPassengers, XE_DOAN_CAPACITY);
+  console.log("🚀 ~ xeDoanBuses:", xeDoanBuses)
+  const tuTucGroups = _allocateTuTucGroups(tuTucPassengers, TU_TUC_CAPACITY);
+
+  const blocks = [];
+  xeDoanBuses.forEach((bus, i) => {
+    blocks.push({ title: `DANH SÁCH XE ${i + 1}`, passengers: bus });
+  });
+  tuTucGroups.forEach((group, i) => {
+    blocks.push({ title: `DANH SÁCH ĐI TỰ TÚC ${i + 1}`, passengers: group });
+  });
+
+  if (blocks.length === 0) {
+    ui.alert("Không có thiền sinh nào đăng ký đi xe!");
+    return;
+  }
+
+  const outputSheet = ss.insertSheet("Danh sách xe");
+  _renderDanhSachXeSheet(outputSheet, blocks);
+
+  console.log(`Đã tạo Danh sach xe với ${blocks.length} nhóm.`);
+  ui.alert(`Đã tạo Danh sach xe thành công:\n- ${xeDoanBuses.length} xe đoàn (${xeDoanPassengers.length} thiền sinh)\n- ${tuTucGroups.length} nhóm tự túc (${tuTucPassengers.length} thiền sinh)`);
+}
+
 // ------------ EMAIL TEMPLATE FUNCTIONS ------------
 
 function createSuccessVerificationByBusMail(input) {
@@ -950,6 +1049,7 @@ function initLuuTruSheet(ss) {
     ["Giờ kết thúc khoá tu", "17h", "GIO_KET_THUC"], // Row 23
     ["Số ngày tham gia tu tập", 5, "SO_NGAY_TU"], // Row 24
     ["Ngày thông báo", new Date(2025, 7, 10), "NGAY_THONG_BAO"], // Row 25
+    ["Folder id danh sách xe để in", "", "FOLDER_ID_DANH_SACH_XE"], // Row 26
   ];
 
   // Set the data
@@ -1154,102 +1254,6 @@ function formatDate(dateObj) {
 
 // ------------ BUS LIST FUNCTIONS (ITEM 8) ------------
 
-function generateDanhSachXe() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const ui = SpreadsheetApp.getUi();
-
-  if (ss.getSheetByName("Danh sách xe")) {
-    ui.alert("Sheet 'Danh sach xe' đã tồn tại. Xóa sheet này trước khi tạo lại.");
-    return;
-  }
-
-  const sourceSheet = ss.getSheetByName("Danh sách gửi mail");
-  if (!sourceSheet) {
-    ui.alert("Không tìm thấy sheet 'Danh sách gửi mail'!");
-    return;
-  }
-
-  const lastRow = sourceSheet.getLastRow();
-  const lastCol = sourceSheet.getLastColumn();
-  if (lastRow < 2) {
-    ui.alert("Không có dữ liệu trong 'Danh sách gửi mail'!");
-    return;
-  }
-
-  const data = sourceSheet.getRange(1, 1, lastRow, lastCol).getValues();
-  const hIndice = getHeadersIndices(data[0]);
-
-  const vehicleIdx = hIndice.get("vehicle");
-  const paymentIdx = hIndice.get("payment");
-  const nameIdx = hIndice.get("studentIdx");
-  const dobIdx = hIndice.get("dateOfBirth");
-  const genderIdx = hIndice.get("gender");
-  const phoneIdx = hIndice.get("phoneNumber");
-
-  if (vehicleIdx === undefined) {
-    ui.alert("Không tìm thấy cột phương thức di chuyển trong 'Danh sách gửi mail'!");
-    return;
-  }
-  if (nameIdx === undefined) {
-    ui.alert("Không tìm thấy cột tên thiền sinh trong 'Danh sách gửi mail'!");
-    return;
-  }
-
-  const xeDoanPassengers = [];
-  const tuTucPassengers = [];
-
-  for (let i = 1; i < data.length; i++) {
-    const row = data[i];
-    const name = row[nameIdx] ? row[nameIdx].toString().trim() : "";
-    if (!name) continue;
-
-    const vehicle = vehicleIdx !== undefined ? row[vehicleIdx].toString().toLowerCase() : "";
-    const payment = paymentIdx !== undefined ? row[paymentIdx] : "";
-    const dob = dobIdx !== undefined ? row[dobIdx] : "";
-    const gender = genderIdx !== undefined ? row[genderIdx].toString().trim() : "";
-    const phone = phoneIdx !== undefined ? row[phoneIdx].toString().trim() : "";
-
-    const passenger = {
-      sourceRow: i,
-      name: name,
-      dob: dob instanceof Date ? formatDate(dob) : dob.toString(),
-      gender: gender,
-      phone: phone,
-      paid: payment === "x",
-    };
-
-    if (vehicle.includes("đoàn") || vehicle.includes("đi chung")) {
-      xeDoanPassengers.push(passenger);
-    } else if (vehicle.includes("tự túc")) {
-      tuTucPassengers.push(passenger);
-    }
-  }
-
-  const XE_DOAN_CAPACITY = 28;
-  const TU_TUC_CAPACITY = 30;
-
-  const xeDoanBuses = _allocateXeDoanBuses(xeDoanPassengers, XE_DOAN_CAPACITY);
-  const tuTucGroups = _allocateTuTucGroups(tuTucPassengers, TU_TUC_CAPACITY);
-
-  const blocks = [];
-  xeDoanBuses.forEach((bus, i) => {
-    blocks.push({ title: `DANH SÁCH XE ${i + 1}`, passengers: bus });
-  });
-  tuTucGroups.forEach((group, i) => {
-    blocks.push({ title: `DANH SÁCH ĐI TỰ TÚC ${i + 1}`, passengers: group });
-  });
-
-  if (blocks.length === 0) {
-    ui.alert("Không có thiền sinh nào đăng ký đi xe!");
-    return;
-  }
-
-  const outputSheet = ss.insertSheet("Danh sach xe");
-  _renderDanhSachXeSheet(outputSheet, blocks);
-
-  console.log(`Đã tạo Danh sach xe với ${blocks.length} nhóm.`);
-  ui.alert(`Đã tạo Danh sach xe thành công:\n- ${xeDoanBuses.length} xe đoàn (${xeDoanPassengers.length} thiền sinh)\n- ${tuTucGroups.length} nhóm tự túc (${tuTucPassengers.length} thiền sinh)`);
-}
 
 function _allocateXeDoanBuses(passengers, capacity) {
   if (passengers.length === 0) return [];
@@ -1321,6 +1325,7 @@ function _renderDanhSachXeSheet(sheet, blocks) {
 
   // Global title
   grid[1][0] = "DANH SÁCH XE ĐOÀN";
+  grid[2][1] = "Chưa thanh toán tiền xe";
 
   blocks.forEach((block, bIdx) => {
     const colStart = bIdx * BLOCK_STRIDE;
@@ -1349,6 +1354,9 @@ function _renderDanhSachXeSheet(sheet, blocks) {
   // Format global title
   sheet.getRange(2, 1).setFontWeight("bold").setFontSize(14);
 
+  // Legend
+  sheet.getRange(3, 1).setBackground("#f4cccc");
+
   // Format per block
   blocks.forEach((block, bIdx) => {
     const colStart = bIdx * BLOCK_STRIDE;
@@ -1363,11 +1371,14 @@ function _renderDanhSachXeSheet(sheet, blocks) {
     headerRange.setFontColor("white");
     headerRange.setBorder(true, true, true, true, true, true);
 
-    // Data rows border
-    if (block.passengers.length > 0) {
-      sheet.getRange(HEADER_OFFSET + 1, colStart + 1, block.passengers.length, BLOCK_WIDTH)
-        .setBorder(true, true, true, true, true, true);
-    }
+    // Data rows border + red background for unpaid
+    block.passengers.forEach((p, pIdx) => {
+      const rowRange = sheet.getRange(HEADER_OFFSET + pIdx + 1, colStart + 1, 1, BLOCK_WIDTH);
+      rowRange.setBorder(true, true, true, true, true, true);
+      if (!p.paid) {
+        rowRange.setBackground("#f4cccc");
+      }
+    });
   });
 
   // Auto-resize all columns
