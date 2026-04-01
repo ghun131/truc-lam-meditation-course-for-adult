@@ -7,6 +7,7 @@ function onOpen() {
     .addItem("Sync danh sách gửi mail", "syncDanhSachGuiMailSheet")
     .addItem("Lọc trùng thiền sinh", "filterDuplicate")
     .addItem("Tạo danh sách xe", "generateDanhSachXe")
+    .addItem("In danh sách xe", "printDanhSachXe")
     .addToUi();
 
   ui.createMenu("Chạy chủ động")
@@ -374,7 +375,7 @@ function generateDanhSachXe() {
     const passenger = {
       sourceRow: i,
       name: name,
-      dob: dob instanceof Date ? formatDate(dob) : dob.toString(),
+      dob,
       gender: gender,
       phone: phone,
       paid: payment === "x",
@@ -411,6 +412,121 @@ function generateDanhSachXe() {
 
   console.log(`Đã tạo Danh sach xe với ${blocks.length} nhóm.`);
   ui.alert(`Đã tạo Danh sach xe thành công:\n- ${xeDoanBuses.length} xe đoàn (${xeDoanPassengers.length} thiền sinh)\n- ${tuTucGroups.length} nhóm tự túc (${tuTucPassengers.length} thiền sinh)`);
+}
+
+function printDanhSachXe() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  const danhSachXeSheet = ss.getSheetByName("Danh sách xe");
+  if (!danhSachXeSheet) {
+    ui.alert("Chưa có sheet 'Danh sách xe'. Vui lòng tạo danh sách xe trước.");
+    return;
+  }
+
+  const savedData = getSavedData();
+  const folderId = savedData.get("danhSachXeFolderId");
+  if (!folderId) {
+    ui.alert("Chưa có Folder ID danh sách xe trong sheet Lưu trữ.");
+    return;
+  }
+
+  const folder = DriveApp.getFolderById(folderId);
+  const templateFiles = folder.getFilesByName("Template");
+  if (!templateFiles.hasNext()) {
+    ui.alert("Không tìm thấy file 'Template' trong thư mục Danh sách xe.");
+    return;
+  }
+  const templateFile = templateFiles.next();
+
+  const lastRow = danhSachXeSheet.getLastRow();
+  const lastCol = danhSachXeSheet.getLastColumn();
+  const data = danhSachXeSheet.getRange(1, 1, lastRow, lastCol).getDisplayValues();
+  const backgrounds = danhSachXeSheet.getRange(1, 1, lastRow, lastCol).getBackgrounds();
+
+  // Extract "DANH SÁCH XE" groups only (stride 6: 5 data + 1 spacer)
+  // Title and leader are written at colStart+1 (see _renderDanhSachXeSheet)
+  // Passenger columns span colStart to colStart+4
+  const busGroups = [];
+  for (let startColIdx = 0; startColIdx < lastCol; startColIdx += 6) {
+    const busTitle = String(data[3][startColIdx + 1]).trim(); // row 4, name col (0-indexed)
+    if (!busTitle.startsWith("DANH SÁCH XE")) continue;
+
+    const hasData = data.slice(8).some(row => String(row[startColIdx]).trim() !== "");
+    if (!hasData) continue;
+
+    // Extract leader name from "Trưởng gia đình: NAME"
+    const truongRaw = String(data[4][startColIdx + 1]);
+    const truongXe = truongRaw.replace(/^Trưởng gia đình:\s*/i, "").trim();
+
+    // Collect passenger rows until an all-empty row is encountered
+    const passengerRows = [];
+    for (let r = 8; r < lastRow; r++) {
+      const rowData = data[r].slice(startColIdx, startColIdx + 5);
+      if (rowData.every(cell => String(cell).trim() === "")) break;
+      const unpaid = backgrounds[r][startColIdx] === "#f4cccc";
+      passengerRows.push({ cells: rowData.map(String), unpaid });
+    }
+
+    busGroups.push({ busTitle, truongXe, passengerRows });
+  }
+
+  if (busGroups.length === 0) {
+    ui.alert("Không tìm thấy danh sách xe nào để in.");
+    return;
+  }
+
+  // One file per bus — each copy preserves template images and formatting
+  busGroups.forEach(group => {
+    const newFile = templateFile.makeCopy(group.busTitle, folder);
+    const doc = DocumentApp.openById(newFile.getId());
+    const body = doc.getBody();
+
+    body.replaceText("\\{\\{TIEU_DE\\}\\}", group.busTitle);
+    body.replaceText("\\{\\{TRUONG_GIA_DINH\\}\\}", group.truongXe);
+
+    // Append passenger table
+    const tableData = [
+      ["STT", "Họ và tên", "Ngày sinh", "Giới tính", "Số điện thoại"],
+      ...group.passengerRows.map(p => p.cells),
+    ];
+    const table = body.appendTable(tableData);
+
+    // Set column widths (in points)
+    [32, 190, 70, 60, 95].forEach((width, c) => table.setColumnWidth(c, width));
+
+    // Font size 12 and zero padding on all cells for compact row height
+    for (let r = 0; r < table.getNumRows(); r++) {
+      const row = table.getRow(r);
+      for (let c = 0; c < 5; c++) {
+        const cell = row.getCell(c);
+        cell.editAsText().setFontSize(12);
+        cell.setPaddingTop(2);
+        cell.setPaddingBottom(2);
+        cell.setPaddingLeft(2);
+        cell.setPaddingRight(2);
+      }
+    }
+
+    // Bold the header row
+    const headerRow = table.getRow(0);
+    for (let c = 0; c < 5; c++) {
+      headerRow.getCell(c).editAsText().setBold(true);
+    }
+
+    // Red background for unpaid passengers
+    group.passengerRows.forEach((p, pIdx) => {
+      if (!p.unpaid) return;
+      const row = table.getRow(pIdx + 1);
+      for (let c = 0; c < 5; c++) {
+        row.getCell(c).setBackgroundColor("#f4cccc");
+      }
+    });
+
+    doc.saveAndClose();
+  });
+
+  ui.alert("Đã tạo " + busGroups.length + " file trong thư mục Danh sách xe.");
 }
 
 // ------------ EMAIL TEMPLATE FUNCTIONS ------------
@@ -1196,6 +1312,7 @@ function getSavedData() {
     ["endTime", savedData[23][1]], // Giờ kết thúc khoá tu
     ["numbefOfMeditationDays", savedData[24][1]], // Số ngày tham gia tu tập
     ["announcementDate", savedData[25][1]], // Ngày thông báo
+    ["danhSachXeFolderId", savedData[26][1]], // Folder id danh sách xe để in
   ]);
 
   return result;
