@@ -343,7 +343,6 @@ function generateDanhSachXe() {
 
   const vehicleIdx = hIndice.get("vehicle");
   const paymentIdx = hIndice.get("payment");
-  console.log("🚀 ~ paymentIdx:", paymentIdx)
   const nameIdx = hIndice.get("studentIdx");
   const dobIdx = hIndice.get("dateOfBirth");
   const genderIdx = hIndice.get("gender");
@@ -392,7 +391,6 @@ function generateDanhSachXe() {
   const TU_TUC_CAPACITY = 30;
 
   const xeDoanBuses = _allocateXeDoanBuses(xeDoanPassengers, XE_DOAN_CAPACITY);
-  console.log("🚀 ~ xeDoanBuses:", xeDoanBuses)
   const tuTucGroups = _allocateTuTucGroups(tuTucPassengers, TU_TUC_CAPACITY);
 
   const blocks = [];
@@ -1252,9 +1250,7 @@ function formatDate(dateObj) {
   return `${day}/${month}/${year}`;
 }
 
-// ------------ BUS LIST FUNCTIONS (ITEM 8) ------------
-
-
+// ------------ BUS LIST FUNCTIONS ------------
 function _allocateXeDoanBuses(passengers, capacity) {
   if (passengers.length === 0) return [];
 
@@ -1277,7 +1273,8 @@ function _allocateXeDoanBuses(passengers, capacity) {
   let femaleIdx = 0;
   for (let b = 0; b < numBuses && femaleIdx < females.length; b++) {
     while (buses[b].length < capacity && femaleIdx < females.length) {
-      buses[b].push(females[femaleIdx++]);
+      buses[b].push(females[femaleIdx]);
+      femaleIdx++;
     }
   }
 
