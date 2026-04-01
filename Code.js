@@ -1305,7 +1305,7 @@ function _renderDanhSachXeSheet(sheet, blocks) {
   // Row layout (0-indexed arrays, 1-indexed in sheet):
   // 0: blank
   // 1: global title
-  // 2: blank
+  // 2: legend
   // 3: block titles
   // 4: Trưởng gia đình placeholders
   // 5: Phó gia đình placeholders
@@ -1321,15 +1321,15 @@ function _renderDanhSachXeSheet(sheet, blocks) {
   const grid = Array.from({ length: totalRows }, () => Array(totalCols).fill(""));
 
   // Global title
-  grid[1][0] = "DANH SÁCH XE ĐOÀN";
+  grid[1][1] = "DANH SÁCH XE ĐOÀN";
   grid[2][1] = "Chưa thanh toán tiền xe";
 
   blocks.forEach((block, bIdx) => {
     const colStart = bIdx * BLOCK_STRIDE;
 
-    grid[3][colStart] = block.title;
-    grid[4][colStart] = "Trưởng gia đình: ";
-    grid[5][colStart] = "Phó gia đình: ";
+    grid[3][colStart + 1] = block.title;
+    grid[4][colStart + 1] = "Trưởng gia đình: ";
+    grid[5][colStart + 1] = "Phó gia đình: ";
     grid[7][colStart] = "STT";
     grid[7][colStart + 1] = "Họ và tên";
     grid[7][colStart + 2] = "Ngày sinh";
@@ -1349,7 +1349,7 @@ function _renderDanhSachXeSheet(sheet, blocks) {
   sheet.getRange(1, 1, totalRows, totalCols).setValues(grid);
 
   // Format global title
-  sheet.getRange(2, 1).setFontWeight("bold").setFontSize(14);
+  sheet.getRange(2, 2).setFontWeight("bold").setFontSize(14);
 
   // Legend
   sheet.getRange(3, 1).setBackground("#f4cccc");
@@ -1359,7 +1359,7 @@ function _renderDanhSachXeSheet(sheet, blocks) {
     const colStart = bIdx * BLOCK_STRIDE;
 
     // Block title bold
-    sheet.getRange(4, colStart + 1).setFontWeight("bold");
+    sheet.getRange(4, colStart + 2).setFontWeight("bold");
 
     // Column headers
     const headerRange = sheet.getRange(8, colStart + 1, 1, BLOCK_WIDTH);
