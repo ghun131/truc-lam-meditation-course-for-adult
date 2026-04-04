@@ -15,5 +15,8 @@
     9.2. [x] Each group of columns is the content of the pdf file
     9.3. [x] Save it to "Danh sách xe" folder which id is provided for you in "Lưu trữ" sheet
     9.4. [ ] "Trưởng xe" is not filled in the generated doc file
-10. [ ] Update Code.js to adapt to many different types of sheets. Below is the list of sheets:
-    10.1. 
+10. [ ] Filter duplicate function should mark duplicate students. This feature will affect other sheets and feature in some way:
+    10.1. initDanhSachGuiMailSheet function will add one more column named "Lặp thiền sinh"
+    10.2. generateDanhSachXe must not include duplicate students. It avoid this duplication by checking "Lặp thiền sinh" column in "Danh sách gửi mail" sheet
+11. [ ] Update Code.js to adapt to many different types of sheets. Below is the list of sheets:
+    11.1. 

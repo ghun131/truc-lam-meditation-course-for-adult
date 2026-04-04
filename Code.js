@@ -185,7 +185,7 @@ function filterDuplicate() {
     const studentObj = { idx: i, email, name, dob };
     if (Array.isArray(cache[email])) {
       cache[email].every(
-        (item) => `${item.name}${item.dob}` !== `${name}{dob}`
+        (item) => `${item.name}${item.dob}` !== `${name}${dob}`
       ) && cache[email].push(studentObj);
     } else {
       cache[email] = [studentObj];
@@ -456,7 +456,7 @@ function printDanhSachXe() {
     if (!hasData) continue;
 
     // Extract leader name from "Trưởng gia đình: NAME"
-    const truongRaw = String(data[4][startColIdx + 1]);
+    const truongRaw = String(data[4][startColIdx + 2]);
     const truongXe = truongRaw.replace(/^Trưởng gia đình:\s*/i, "").trim();
 
     // Collect passenger rows until an all-empty row is encountered
@@ -484,6 +484,7 @@ function printDanhSachXe() {
 
     body.replaceText("\\{\\{TIEU_DE\\}\\}", group.busTitle);
     body.replaceText("\\{\\{TRUONG_GIA_DINH\\}\\}", group.truongXe);
+    body.replaceText("\\{\\{TEN_KT\\}\\}", savedData.get("courseName"));
 
     // Append passenger table
     const tableData = [
@@ -1085,7 +1086,7 @@ function isLatePayment(date) {
 
 function cloneSheetData(sourceSheet, targetSheet) {
   // Clone all data from source sheet
-  const lastSelectedColumn = 12; // From column A to L, 12 questions
+  const lastSelectedColumn = sourceSheet.getLastColumn();
   const sourceRange = sourceSheet.getRange(1, 1, sourceSheet.getLastRow(), lastSelectedColumn);
   if (sourceRange.getNumRows() > 0) {
     const sourceData = sourceRange.getValues();
@@ -1230,7 +1231,7 @@ function getHeadersIndices(headerData) {
       result.set("docCreateIdx", i);
     }
 
-    if (header === "họ và tên của bạn là?") {
+    if (header.includes("họ và tên") || header.includes("họ tên")) {
       result.set("studentIdx", i);
     }
 
@@ -1258,7 +1259,7 @@ function getHeadersIndices(headerData) {
       result.set("note", i);
     }
 
-    if (header === "ngày/tháng/năm sinh của bạn") {
+    if (header.includes("năm sinh") || header.includes("chào đời")) {
       result.set("dateOfBirth", i);
     }
 
