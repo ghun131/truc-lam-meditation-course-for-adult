@@ -47,6 +47,7 @@ function initDanhSachGuiMailSheet() {
     "Đã gửi mail đăng ký thành công",
     "Đã gửi mail nhắc chuyển tiền xe",
     "Thông báo",
+    "Lặp thiền sinh",
     "Note",
   ];
 
@@ -174,6 +175,7 @@ function filterDuplicate() {
   const confirmMailSentIdx = hIndice.get("confirmMailSent");
   const docCreatedIdx = hIndice.get("docCreateIdx");
   const remindingEmailIdx = hIndice.get("remindingMailIdx");
+  const duplicateStudentIdx = hIndice.get("duplicateStudent");
 
   let cache = {};
 
@@ -216,6 +218,8 @@ function filterDuplicate() {
             sheet.getRange(i + 1, docCreatedIdx + 1).setValue("x");
           remindingEmailIdx !== undefined &&
             sheet.getRange(i + 1, remindingEmailIdx + 1).setValue("x");
+          duplicateStudentIdx !== undefined &&
+            sheet.getRange(i + 1, duplicateStudentIdx + 1).setValue("x");
 
           console.log(`Dòng ${i + 1} trùng bạn ${item.name}, email: ${email}`);
         }
@@ -348,6 +352,7 @@ function generateDanhSachXe() {
   const dobIdx = hIndice.get("dateOfBirth");
   const genderIdx = hIndice.get("gender");
   const phoneIdx = hIndice.get("phoneNumber");
+  const duplicateStudentIdx = hIndice.get("duplicateStudent");
 
   if (vehicleIdx === undefined) {
     ui.alert("Không tìm thấy cột phương thức di chuyển trong 'Danh sách gửi mail'!");
@@ -365,6 +370,13 @@ function generateDanhSachXe() {
     const row = data[i];
     const name = row[nameIdx] ? row[nameIdx].toString().trim() : "";
     if (!name) continue;
+
+    // Skip duplicate students
+    const isDuplicate = duplicateStudentIdx !== undefined ? row[duplicateStudentIdx] === "x" : false;
+    if (isDuplicate) {
+      console.log(`Skipping duplicate student: ${name} at row ${i + 1}`);
+      continue;
+    }
 
     const vehicle = vehicleIdx !== undefined ? row[vehicleIdx].toString().toLowerCase() : "";
     const payment = paymentIdx !== undefined ? row[paymentIdx] : "";
@@ -897,20 +909,37 @@ function execSendMail() {
   }
 
   const allData = sheet.getRange(1, 1, lastRow, lastColumn).getValues();
+  const hIndices = getHeadersIndices(allData[0]);
+
+  const emailIndices = hIndices.get("email");
+  const emailIdx = emailIndices ? emailIndices[0] : undefined;
+  const vehicleIdx = hIndices.get("vehicle");
+  const paymentIdx = hIndices.get("payment");
+  const confirmMailIdx = hIndices.get("confirmMailSent");
+  const reminderMailIdx = hIndices.get("remindingMailIdx");
+  const reportIdx = hIndices.get("report");
+
+  if (emailIdx === undefined || vehicleIdx === undefined) {
+    console.log("Missing required columns (email or vehicle). Aborting.");
+    return;
+  }
+
+  const savedDataMap = getSavedData();
+  const paymentDeadline = savedDataMap.get("deadlinePayment");
 
   for (let row = 0; row < allData.length; row++) {
     if (row === 0) continue;
 
     const rowData = allData[row];
-    const email = rowData[10]; // Column K
-    const vehicle = rowData[1]; // Column B
+    const email = rowData[emailIdx];
+    const vehicle = rowData[vehicleIdx];
     const byBus = vehicle === "Đi ô tô cùng Đoàn";
-    const paidBusFee = rowData[12] ?
-      rowData[12].toLowerCase() :
-      ''; // Column M
+    const paidBusFee = paymentIdx !== undefined && rowData[paymentIdx]
+      ? rowData[paymentIdx].toString().toLowerCase()
+      : '';
     const personalVehicle = vehicle === "Tự túc phương tiện";
-    const confirmMailSent = rowData[13]; // Column N
-    const sentReminderMail = rowData[14]; // Column O
+    const confirmMailSent = confirmMailIdx !== undefined ? rowData[confirmMailIdx] : '';
+    const sentReminderMail = reminderMailIdx !== undefined ? rowData[reminderMailIdx] : '';
 
     if (
       email &&
@@ -918,15 +947,8 @@ function execSendMail() {
       (personalVehicle || (byBus && paidBusFee.includes("x")))
     ) {
       console.log(`Send successful registration email to: ${email}`);
-      sendRegisterSuccessful({ sheet, row, email, byBus });
+      sendRegisterSuccessful({ sheet, row, email, byBus, hIndices });
     }
-
-    const savedSheet = spreadsheet.getSheetByName("Lưu trữ");
-    const savedData = savedSheet
-      .getRange(1, 1, savedSheet.getLastRow(), savedSheet.getLastColumn())
-      .getValues();
-    const savedDataMap = getSavedData(savedData);
-    const paymentDeadline = savedDataMap.get("deadlinePayment");
 
     if (
       byBus &&
@@ -937,21 +959,24 @@ function execSendMail() {
       isLatePayment(paymentDeadline)
     ) {
       console.log(`Sent payment reminder to ${email}`);
-      sendBusFeePaymentReminder(sheet, row, email);
+      sendBusFeePaymentReminder(sheet, row, email, hIndices);
     }
 
     // Clean up errored row has been fixed
-    const hasError =
-      rowData[16] === "Lỗi mail phí xe!" ||
-      rowData[16] === "Lỗi mail xác nhận!"; // Column R
+    const hasError = reportIdx !== undefined &&
+      (rowData[reportIdx] === "Lỗi mail phí xe!" ||
+        rowData[reportIdx] === "Lỗi mail xác nhận!");
     if ((confirmMailSent || sentReminderMail) && hasError) {
       setRowBackgroundColor(sheet, "white", row);
-      sheet.getRange(row + 1, 16).setValue("");
+      sheet.getRange(row + 1, reportIdx + 1).setValue("");
     }
   }
 }
 
-function sendRegisterSuccessful({ sheet, row, email, byBus }) {
+function sendRegisterSuccessful({ sheet, row, email, byBus, hIndices }) {
+  const confirmMailIdx = hIndices.get("confirmMailSent");
+  const reportIdx = hIndices.get("report");
+
   const savedDataMap = getSavedData();
   const commonData = {
     courseName: savedDataMap.get("courseName"),
@@ -992,13 +1017,19 @@ function sendRegisterSuccessful({ sheet, row, email, byBus }) {
       });
       console.log(`Sent to ${email} own vehicle`);
     }
-    sheet.getRange(row + 1, 14).setValue("x"); // Write to column P
+    if (confirmMailIdx !== undefined) {
+      sheet.getRange(row + 1, confirmMailIdx + 1).setValue("x");
+    }
     setRowBackgroundColor(sheet, "white", row);
-    sheet.getRange(row + 1, 16).setValue("");
+    if (reportIdx !== undefined) {
+      sheet.getRange(row + 1, reportIdx + 1).setValue("");
+    }
   } catch (error) {
     console.log(`sendingRegisterSuccessful: ${error}`);
     setRowBackgroundColor(sheet, "#ffdddd", row);
-    sheet.getRange(row + 1, 16).setValue("Lỗi mail xác nhận!");
+    if (reportIdx !== undefined) {
+      sheet.getRange(row + 1, reportIdx + 1).setValue("Lỗi mail xác nhận!");
+    }
   }
 }
 
@@ -1014,19 +1045,27 @@ function testSendBusFeePaymentReminder() {
   }
 
   const allData = sheet.getRange(1, 1, lastRow, lastColumn).getValues();
+  const hIndices = getHeadersIndices(allData[0]);
+
+  const emailIndices = hIndices.get("email");
+  const emailIdx = emailIndices ? emailIndices[0] : undefined;
+  const vehicleIdx = hIndices.get("vehicle");
+  const paymentIdx = hIndices.get("payment");
+  const confirmMailIdx = hIndices.get("confirmMailSent");
+  const reminderMailIdx = hIndices.get("remindingMailIdx");
 
   for (let row = 0; row < allData.length; row++) {
     if (row === 0) continue;
 
     const rowData = allData[row];
-    const vehicle = rowData[1]; // Column B
+    const vehicle = vehicleIdx !== undefined ? rowData[vehicleIdx] : '';
     const byBus = vehicle === "Đi ô tô cùng Đoàn";
-    const sentReminderMail = rowData[14]; // Column O
-    const email = rowData[10]; // Column K
-    const paid = rowData[12]; // Column M
-    const confirmMailSent = rowData[13]; // Column N
+    const sentReminderMail = reminderMailIdx !== undefined ? rowData[reminderMailIdx] : '';
+    const email = emailIdx !== undefined ? rowData[emailIdx] : '';
+    const paid = paymentIdx !== undefined && rowData[paymentIdx] ? rowData[paymentIdx].toString() : '';
+    const confirmMailSent = confirmMailIdx !== undefined && rowData[confirmMailIdx] ? rowData[confirmMailIdx].toString() : '';
 
-    if (sentReminderMail.toLowerCase() === "x" ||
+    if (sentReminderMail.toString().toLowerCase() === "x" ||
       !email ||
       !byBus ||
       paid.toLowerCase() === "x" ||
@@ -1035,12 +1074,15 @@ function testSendBusFeePaymentReminder() {
       console.log(`testSendBusFeePaymentReminder: already sent or invalid`);
       continue;
     }
-    sendBusFeePaymentReminder(sheet, row, email);
+    sendBusFeePaymentReminder(sheet, row, email, hIndices);
     console.log(`testSendBusFeePaymentReminder: sent`);
   }
 }
 
-function sendBusFeePaymentReminder(sheet, row, email) {
+function sendBusFeePaymentReminder(sheet, row, email, hIndices) {
+  const reminderMailIdx = hIndices.get("remindingMailIdx");
+  const reportIdx = hIndices.get("report");
+
   const savedDataMap = getSavedData();
   const paymentReminderMail = createPaymentReminderMail({
     courseName: savedDataMap.get("courseName"),
@@ -1054,11 +1096,15 @@ function sendBusFeePaymentReminder(sheet, row, email) {
     GmailApp.sendEmail(email, paymentReminderMail.subject, "", {
       htmlBody: paymentReminderMail.content,
     });
-    sheet.getRange(row + 1, 15).setValue("x");
+    if (reminderMailIdx !== undefined) {
+      sheet.getRange(row + 1, reminderMailIdx + 1).setValue("x");
+    }
   } catch (error) {
     console.log(`sendBusFeePaymentReminder: ${error}`);
     setRowBackgroundColor(sheet, "#ffdddd", row);
-    sheet.getRange(row + 1, 18).setValue("Lỗi mail phí xe!");
+    if (reportIdx !== undefined) {
+      sheet.getRange(row + 1, reportIdx + 1).setValue("Lỗi mail phí xe!");
+    }
   }
 }
 
@@ -1274,6 +1320,10 @@ function getHeadersIndices(headerData) {
 
     if (header.includes("giới tính")) {
       result.get("gender") ? null : result.set("gender", i);
+    }
+
+    if (header === "lặp thiền sinh") {
+      result.set("duplicateStudent", i);
     }
   }
 
