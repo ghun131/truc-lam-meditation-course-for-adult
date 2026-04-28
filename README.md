@@ -20,3 +20,10 @@
     10.2. generateDanhSachXe must not include duplicate students. It avoid this duplication by checking "Lặp thiền sinh" column in "Danh sách gửi mail" sheet
 11. [ ] Update Code.js to adapt to many different types of sheets. Below is the list of sheets:
     11.1. 
+12. [ ] When creating a "Danh sach xe", make all student name in capital letters
+13. [ ] Create a "Huỷ" column
+    13.1. When a row of this column is checked, it means the student is cancelled
+    13.2. You won't send confirmation mail to this student
+    13.3. You won't send bus fee payment reminder to this student
+    13.4. You won't include this student in "Danh sách xe" sheet
+    13.5. The row will be highlighted with the same background color with duplicated student specified in filterDuplicate function

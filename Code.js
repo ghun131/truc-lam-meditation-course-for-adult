@@ -386,7 +386,7 @@ function generateDanhSachXe() {
 
     const passenger = {
       sourceRow: i,
-      name: name,
+      name: name.toUpperCase(),
       dob,
       gender: gender,
       phone: phone,
