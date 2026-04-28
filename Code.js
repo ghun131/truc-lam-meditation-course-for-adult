@@ -518,6 +518,7 @@ function printDanhSachXe() {
         cell.setPaddingBottom(2);
         cell.setPaddingLeft(2);
         cell.setPaddingRight(2);
+        cell.getChild(0).asParagraph().setAlignment(DocumentApp.HorizontalAlignment.CENTER);
       }
     }
 
@@ -1534,12 +1535,16 @@ function _renderDanhSachXeSheet(sheet, blocks) {
     headerRange.setFontWeight("bold");
     headerRange.setBackground("#4a86e8");
     headerRange.setFontColor("white");
+    headerRange.setHorizontalAlignment("center");
+    headerRange.setVerticalAlignment("middle");
     headerRange.setBorder(true, true, true, true, true, true);
 
     // Data rows border + red background for unpaid
     block.passengers.forEach((p, pIdx) => {
       const rowRange = sheet.getRange(HEADER_OFFSET + pIdx + 1, colStart + 1, 1, BLOCK_WIDTH);
       rowRange.setBorder(true, true, true, true, true, true);
+      rowRange.setHorizontalAlignment("center");
+      rowRange.setVerticalAlignment("middle");
       if (!p.paid) {
         rowRange.setBackground("#f4cccc");
       }
