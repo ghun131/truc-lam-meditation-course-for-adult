@@ -407,12 +407,14 @@ function generateDanhSachXe() {
   const tuTucGroups = _allocateTuTucGroups(tuTucPassengers, TU_TUC_CAPACITY);
 
   const blocks = [];
-  xeDoanBuses.forEach((bus, i) => {
+  for (let i = 0; i < xeDoanBuses.length; ++i) {
+    const bus = xeDoanBuses[i];
     blocks.push({ title: `DANH SÁCH XE ${i + 1}`, passengers: bus });
-  });
-  tuTucGroups.forEach((group, i) => {
+  }
+  for (let i = 0; i < tuTucGroups.length; ++i) {
+    const group = tuTucGroups[i];
     blocks.push({ title: `DANH SÁCH ĐI TỰ TÚC ${i + 1}`, passengers: group });
-  });
+  }
 
   if (blocks.length === 0) {
     ui.alert("Không có thiền sinh nào đăng ký đi xe!");
@@ -489,7 +491,7 @@ function printDanhSachXe() {
   }
 
   // One file per bus — each copy preserves template images and formatting
-  busGroups.forEach(group => {
+  for (const group of busGroups) {
     const newFile = templateFile.makeCopy(group.busTitle, folder);
     const doc = DocumentApp.openById(newFile.getId());
     const body = doc.getBody();
@@ -529,16 +531,17 @@ function printDanhSachXe() {
     }
 
     // Red background for unpaid passengers
-    group.passengerRows.forEach((p, pIdx) => {
-      if (!p.unpaid) return;
+    for (let pIdx = 0; pIdx < group.passengerRows.length; ++pIdx) {
+      const p = group.passengerRows[pIdx];
+      if (!p.unpaid) continue;
       const row = table.getRow(pIdx + 1);
       for (let c = 0; c < 5; c++) {
         row.getCell(c).setBackgroundColor("#f4cccc");
       }
-    });
+    }
 
     doc.saveAndClose();
-  });
+  }
 
   ui.alert("Đã tạo " + busGroups.length + " file trong thư mục Danh sách xe.");
 }
@@ -1493,7 +1496,8 @@ function _renderDanhSachXeSheet(sheet, blocks) {
   grid[1][1] = "DANH SÁCH XE ĐOÀN";
   grid[2][1] = "Chưa thanh toán tiền xe";
 
-  blocks.forEach((block, bIdx) => {
+  for (let bIdx = 0; bIdx < blocks.length; ++bIdx) {
+    const block = blocks[bIdx];
     const colStart = bIdx * BLOCK_STRIDE;
 
     grid[3][colStart + 1] = block.title;
@@ -1505,15 +1509,16 @@ function _renderDanhSachXeSheet(sheet, blocks) {
     grid[7][colStart + 3] = "Giới tính";
     grid[7][colStart + 4] = "Số điện thoại";
 
-    block.passengers.forEach((p, pIdx) => {
+    for (let pIdx = 0; pIdx < block.passengers.length; ++pIdx) {
+      const p = block.passengers[pIdx];
       const rowIdx = HEADER_OFFSET + pIdx;
       grid[rowIdx][colStart] = pIdx + 1;
       grid[rowIdx][colStart + 1] = p.name;
       grid[rowIdx][colStart + 2] = p.dob;
       grid[rowIdx][colStart + 3] = p.gender;
       grid[rowIdx][colStart + 4] = p.phone;
-    });
-  });
+    }
+  }
 
   sheet.getRange(1, 1, totalRows, totalCols).setValues(grid);
 
@@ -1524,7 +1529,8 @@ function _renderDanhSachXeSheet(sheet, blocks) {
   sheet.getRange(3, 1).setBackground("#f4cccc");
 
   // Format per block
-  blocks.forEach((block, bIdx) => {
+  for (let bIdx = 0; bIdx < blocks.length; ++bIdx) {
+    const block = blocks[bIdx];
     const colStart = bIdx * BLOCK_STRIDE;
 
     // Block title bold
@@ -1540,7 +1546,8 @@ function _renderDanhSachXeSheet(sheet, blocks) {
     headerRange.setBorder(true, true, true, true, true, true);
 
     // Data rows border + red background for unpaid
-    block.passengers.forEach((p, pIdx) => {
+    for (let pIdx = 0; pIdx < block.passengers.length; ++pIdx) {
+      const p = block.passengers[pIdx];
       const rowRange = sheet.getRange(HEADER_OFFSET + pIdx + 1, colStart + 1, 1, BLOCK_WIDTH);
       rowRange.setBorder(true, true, true, true, true, true);
       rowRange.setHorizontalAlignment("center");
@@ -1548,8 +1555,8 @@ function _renderDanhSachXeSheet(sheet, blocks) {
       if (!p.paid) {
         rowRange.setBackground("#f4cccc");
       }
-    });
-  });
+    }
+  }
 
   // Auto-resize all columns
   for (let c = 1; c <= totalCols; c++) {
