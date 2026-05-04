@@ -21,7 +21,7 @@
 11. [ ] Update Code.js to adapt to many different types of sheets. Below is the list of sheets:
     11.1. 
 12. [x] When creating a "Danh sach xe", make all student name in capital letters
-13. [ ] Create a "Huỷ" column
+13. [x] Create a "Huỷ" column
     13.1. When a row of this column is checked, it means the student is cancelled
     13.2. You won't send confirmation mail to this student
     13.3. You won't send bus fee payment reminder to this student
