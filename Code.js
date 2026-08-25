@@ -33,6 +33,7 @@ function initDanhSachGuiMailSheet() {
   }
 
   if (Boolean(sheet) && Boolean(savingSheet)) {
+    _ensureTimeTriggers();
     return;
   }
 
@@ -92,7 +93,50 @@ function initDanhSachGuiMailSheet() {
     console.log("Tất cả các cột bắt buộc đã tồn tại trong sheet.");
   }
 
+  _ensureTimeTriggers();
+
   return sheet;
+}
+
+function _ensureTimeTriggers() {
+  const configs = [
+    { handler: "testSendBusFeePaymentReminder", hours: 12 },
+    { handler: "execFilterDuplicate", hours: 6 },
+    { handler: "execSyncDanhSachGuiMailSheet", hours: 12 },
+    { handler: "execSendMail", hours: 12 },
+  ];
+
+  const existingClockHandlers = new Set();
+  const projectTriggers = ScriptApp.getProjectTriggers();
+  for (let i = 0; i < projectTriggers.length; i++) {
+    const trigger = projectTriggers[i];
+    if (trigger.getEventType() === ScriptApp.EventType.CLOCK) {
+      existingClockHandlers.add(trigger.getHandlerFunction());
+    }
+  }
+
+  let createdCount = 0;
+  for (let i = 0; i < configs.length; i++) {
+    const config = configs[i];
+    if (existingClockHandlers.has(config.handler)) {
+      continue;
+    }
+
+    ScriptApp.newTrigger(config.handler)
+      .timeBased()
+      .everyHours(config.hours)
+      .create();
+    createdCount++;
+    console.log(
+      `Đã tạo trigger ${config.handler} chạy mỗi ${config.hours} giờ`,
+    );
+  }
+
+  if (createdCount === 0) {
+    console.log("Tất cả time trigger đã tồn tại.");
+  } else {
+    console.log(`Đã tạo ${createdCount} time trigger(s).`);
+  }
 }
 
 function execSyncDanhSachGuiMailSheet() {
