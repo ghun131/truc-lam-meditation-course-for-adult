@@ -7,6 +7,7 @@ function onOpen() {
     .addItem("Sync danh sách gửi mail", "execSyncDanhSachGuiMailSheet")
     .addItem("Lọc trùng thiền sinh", "execFilterDuplicate")
     .addItem("Tạo danh sách xe", "generateDanhSachXe")
+    .addItem("Tạo danh sách gia đình", "generateDanhSachGiaDinh")
     .addItem("In danh sách xe", "printDanhSachXe")
     .addToUi();
 
@@ -479,6 +480,149 @@ function generateDanhSachXe() {
   ui.alert(
     `Đã tạo Danh sach xe thành công:\n- ${xeDoanBuses.length} xe đoàn (${xeDoanPassengers.length} thiền sinh)\n- ${tuTucGroups.length} nhóm tự túc (${tuTucPassengers.length} thiền sinh)`,
   );
+}
+
+function generateDanhSachGiaDinh() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  if (ss.getSheetByName("Danh sách gia đình")) {
+    ui.alert(
+      "Sheet 'Danh sách gia đình' đã tồn tại. Xóa sheet này trước khi tạo lại.",
+    );
+    return;
+  }
+
+  const sourceSheet = ss.getSheetByName("Danh sách gửi mail");
+  if (!sourceSheet) {
+    ui.alert("Không tìm thấy sheet 'Danh sách gửi mail'!");
+    return;
+  }
+
+  const lastRow = sourceSheet.getLastRow();
+  const lastCol = sourceSheet.getLastColumn();
+  if (lastRow < 2) {
+    ui.alert("Không có dữ liệu trong 'Danh sách gửi mail'!");
+    return;
+  }
+
+  const luuTruSheet = ss.getSheetByName("Lưu trữ");
+  if (!luuTruSheet) {
+    ui.alert("Không tìm thấy sheet 'Lưu trữ'!");
+    return;
+  }
+  _ensureLuuTruFamilyConfig(luuTruSheet);
+
+  const familySize = _parseFamilySize(
+    _getLuuTruValueByLabel(luuTruSheet, "Số thành viên mỗi gia đình"),
+  );
+  const xeDoanZaloLinks = _parseCommaSeparatedList(
+    _getLuuTruValueByLabel(luuTruSheet, "Link Zalo gia đình xe Đoàn"),
+  );
+  const tuTucZaloLinks = _parseCommaSeparatedList(
+    _getLuuTruValueByLabel(luuTruSheet, "Link Zalo gia đình Tự Túc"),
+  );
+
+  const data = sourceSheet.getRange(1, 1, lastRow, lastCol).getValues();
+  const hIndice = _getHeadersIndices(data[0]);
+
+  const vehicleIdx = hIndice.get("vehicle");
+  const paymentIdx = hIndice.get("payment");
+  const nameIdx = hIndice.get("studentIdx");
+  const dobIdx = hIndice.get("dateOfBirth");
+  const genderIdx = hIndice.get("gender");
+  const phoneIdx = hIndice.get("phoneNumber");
+  const cancelledIdx = hIndice.get("cancelled");
+
+  if (vehicleIdx === undefined) {
+    ui.alert(
+      "Không tìm thấy cột phương thức di chuyển trong 'Danh sách gửi mail'!",
+    );
+    return;
+  }
+  if (nameIdx === undefined) {
+    ui.alert("Không tìm thấy cột tên thiền sinh trong 'Danh sách gửi mail'!");
+    return;
+  }
+
+  const xeDoanMembers = [];
+  const tuTucMembers = [];
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const name = row[nameIdx] ? row[nameIdx].toString().trim() : "";
+    if (!name) continue;
+
+    const isCancelled =
+      cancelledIdx !== undefined && _isCancelledValue(row[cancelledIdx]);
+    if (isCancelled) {
+      console.log(`Bỏ qua thiền sinh đã huỷ: ${name} tại dòng ${i + 1}`);
+      continue;
+    }
+
+    const vehicle =
+      vehicleIdx !== undefined ? row[vehicleIdx].toString().toLowerCase() : "";
+    const payment = paymentIdx !== undefined ? row[paymentIdx] : "";
+    const dob = dobIdx !== undefined ? row[dobIdx] : "";
+    const gender =
+      genderIdx !== undefined ? row[genderIdx].toString().trim() : "";
+    const phone = phoneIdx !== undefined ? row[phoneIdx].toString().trim() : "";
+
+    const member = {
+      sourceRow: i,
+      name: name.toUpperCase(),
+      dob,
+      gender: gender,
+      phone: phone,
+      paid: payment === "x",
+    };
+
+    if (vehicle.includes("đoàn") || vehicle.includes("đi chung")) {
+      xeDoanMembers.push(member);
+    } else if (vehicle.includes("tự túc")) {
+      tuTucMembers.push(member);
+    }
+  }
+
+  const xeDoanFamilies = _allocateFamilies(xeDoanMembers, familySize);
+  const tuTucFamilies = _allocateFamilies(tuTucMembers, familySize);
+
+  const blocks = [];
+  let missingZalo = 0;
+
+  for (let i = 0; i < xeDoanFamilies.length; ++i) {
+    const zaloLink = xeDoanZaloLinks[i] || "";
+    if (!zaloLink) missingZalo++;
+    blocks.push({
+      title: `GIA ĐÌNH XE ĐOÀN ${i + 1}`,
+      members: xeDoanFamilies[i],
+      zaloLink,
+    });
+  }
+  for (let i = 0; i < tuTucFamilies.length; ++i) {
+    const zaloLink = tuTucZaloLinks[i] || "";
+    if (!zaloLink) missingZalo++;
+    blocks.push({
+      title: `GIA ĐÌNH TỰ TÚC ${i + 1}`,
+      members: tuTucFamilies[i],
+      zaloLink,
+    });
+  }
+
+  if (blocks.length === 0) {
+    ui.alert("Không có thiền sinh nào để chia gia đình!");
+    return;
+  }
+
+  const outputSheet = ss.insertSheet("Danh sách gia đình");
+  _renderDanhSachGiaDinhSheet(outputSheet, blocks);
+
+  console.log(`Đã tạo Danh sách gia đình với ${blocks.length} nhóm.`);
+  let message = `Đã tạo Danh sách gia đình thành công:\n- ${xeDoanFamilies.length} gia đình xe Đoàn (${xeDoanMembers.length} thiền sinh)\n- ${tuTucFamilies.length} gia đình Tự Túc (${tuTucMembers.length} thiền sinh)`;
+  if (missingZalo > 0) {
+    message += `\n\nThiếu ${missingZalo} link Zalo trong sheet Lưu trữ.`;
+  }
+  ui.alert(message);
 }
 
 function printDanhSachXe() {
@@ -1319,7 +1463,7 @@ function _initLuuTruSheet(ss) {
     ["Số ngày tham gia tu tập", 5, "SO_NGAY_TU"], // Row 24
     ["Ngày thông báo", new Date(2025, 7, 10), "NGAY_THONG_BAO"], // Row 25
     ["Folder id danh sách xe để in", "", "FOLDER_ID_DANH_SACH_XE"], // Row 26
-  ];
+  ].concat(FAMILY_CONFIG_ROWS);
 
   // Set the data
   const range = sheet.getRange(1, 1, data.length, 3);
@@ -1475,6 +1619,18 @@ function _getSavedData() {
     ["announcementDate", savedData[25][1]], // Ngày thông báo
     ["danhSachXeFolderId", savedData[26][1]], // Folder id danh sách xe để in
   ]);
+
+  const familyLabelMap = {
+    "Số thành viên mỗi gia đình": "familySize",
+    "Link Zalo gia đình xe Đoàn": "zaloGiaDinhXeDoan",
+    "Link Zalo gia đình Tự Túc": "zaloGiaDinhTuTuc",
+  };
+  for (let i = 0; i < savedData.length; i++) {
+    const key = familyLabelMap[savedData[i][0]];
+    if (key) {
+      result.set(key, savedData[i][1]);
+    }
+  }
 
   return result;
 }
@@ -1682,3 +1838,234 @@ function _renderDanhSachXeSheet(sheet, blocks) {
     sheet.autoResizeColumn(c);
   }
 }
+
+// ------------ FAMILY LIST FUNCTIONS ------------
+const FAMILY_MIN_MALES = 3;
+const FAMILY_MAX_MALES = 5;
+const DEFAULT_FAMILY_SIZE = 20;
+const FAMILY_CONFIG_ROWS = [
+  ["Số thành viên mỗi gia đình", 20, "SO_THANH_VIEN_GIA_DINH"],
+  ["Link Zalo gia đình xe Đoàn", "", "LINK_ZALO_GIA_DINH_XE_DOAN"],
+  ["Link Zalo gia đình Tự Túc", "", "LINK_ZALO_GIA_DINH_TU_TUC"],
+];
+
+function _ensureLuuTruFamilyConfig(sheet) {
+  const lastRow = sheet.getLastRow();
+  const labels =
+    lastRow > 0
+      ? sheet
+          .getRange(1, 1, lastRow, 1)
+          .getValues()
+          .map((row) => String(row[0]).trim())
+      : [];
+
+  const missing = FAMILY_CONFIG_ROWS.filter(
+    (row) => labels.indexOf(row[0]) === -1,
+  );
+  if (missing.length === 0) return;
+
+  const startRow = lastRow + 1;
+  sheet.getRange(startRow, 1, missing.length, 3).setValues(missing);
+  sheet.getRange(startRow, 1, missing.length, 1).setFontWeight("bold");
+  sheet.autoResizeColumns(1, 3);
+}
+
+function _getLuuTruValueByLabel(sheet, label) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 1) return "";
+
+  const rows = sheet.getRange(1, 1, lastRow, 2).getValues();
+  for (let i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]).trim() === label) {
+      return rows[i][1];
+    }
+  }
+  return "";
+}
+
+function _parseFamilySize(value) {
+  const parsed = Number(value);
+  if (!parsed || parsed < 1) return DEFAULT_FAMILY_SIZE;
+  return Math.floor(parsed);
+}
+
+function _parseCommaSeparatedList(value) {
+  if (value === null || value === undefined || value === "") return [];
+  return String(value)
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+function _isMaleGender(gender) {
+  return String(gender || "")
+    .trim()
+    .toLowerCase() === "nam";
+}
+
+function _allocateFamilies(members, familySize) {
+  if (!members || members.length === 0) return [];
+
+  const size =
+    familySize && familySize > 0 ? Math.floor(familySize) : DEFAULT_FAMILY_SIZE;
+
+  const sorted = [...members].sort((a, b) => a.sourceRow - b.sourceRow);
+  const males = sorted.filter((m) => _isMaleGender(m.gender));
+  const females = sorted.filter((m) => !_isMaleGender(m.gender));
+
+  const families = [];
+  let maleIdx = 0;
+  let femaleIdx = 0;
+
+  while (maleIdx < males.length || femaleIdx < females.length) {
+    const family = [];
+    const malesRemain = maleIdx < males.length;
+    const femaleCap = malesRemain
+      ? Math.max(0, size - FAMILY_MIN_MALES)
+      : size;
+
+    while (family.length < femaleCap && femaleIdx < females.length) {
+      family.push(females[femaleIdx++]);
+    }
+
+    let malesInFamily = 0;
+    while (
+      family.length < size &&
+      maleIdx < males.length &&
+      malesInFamily < FAMILY_MAX_MALES
+    ) {
+      family.push(males[maleIdx++]);
+      malesInFamily++;
+    }
+
+    if (maleIdx >= males.length) {
+      while (family.length < size && femaleIdx < females.length) {
+        family.push(females[femaleIdx++]);
+      }
+    }
+
+    families.push(family);
+  }
+
+  return families;
+}
+
+function _setZaloLinkCell(sheet, row, col, url) {
+  const prefix = "Link Zalo: ";
+  if (!url) {
+    sheet.getRange(row, col).setValue(prefix);
+    return;
+  }
+
+  const text = prefix + url;
+  if (/^https?:\/\//i.test(url)) {
+    const rich = SpreadsheetApp.newRichTextValue()
+      .setText(text)
+      .setLinkUrl(prefix.length, text.length, url)
+      .build();
+    sheet.getRange(row, col).setRichTextValue(rich);
+  } else {
+    sheet.getRange(row, col).setValue(text);
+  }
+}
+
+function _renderDanhSachGiaDinhSheet(sheet, blocks) {
+  const BLOCK_WIDTH = 5;
+  const SPACER_WIDTH = 1;
+  const BLOCK_STRIDE = BLOCK_WIDTH + SPACER_WIDTH;
+
+  // Row layout (0-indexed arrays, 1-indexed in sheet):
+  // 0: blank
+  // 1: global title
+  // 2: legend
+  // 3: block titles
+  // 4: Trưởng gia đình placeholders
+  // 5: Phó gia đình placeholders
+  // 6: Link Zalo
+  // 7: column headers
+  // 8+: member data
+  const HEADER_OFFSET = 8;
+
+  const maxMembers = blocks.reduce(
+    (max, b) => Math.max(max, b.members.length),
+    0,
+  );
+  const totalRows = HEADER_OFFSET + maxMembers;
+  const totalCols = blocks.length * BLOCK_STRIDE;
+
+  const grid = Array.from({ length: totalRows }, () =>
+    Array(totalCols).fill(""),
+  );
+
+  grid[1][1] = "DANH SÁCH GIA ĐÌNH";
+  grid[2][1] = "Chưa thanh toán tiền xe";
+
+  for (let bIdx = 0; bIdx < blocks.length; ++bIdx) {
+    const block = blocks[bIdx];
+    const colStart = bIdx * BLOCK_STRIDE;
+
+    grid[3][colStart + 1] = block.title;
+    grid[4][colStart + 1] = "Trưởng gia đình: ";
+    grid[5][colStart + 1] = "Phó gia đình: ";
+    grid[6][colStart + 1] = block.zaloLink
+      ? "Link Zalo: " + block.zaloLink
+      : "Link Zalo: ";
+    grid[7][colStart] = "STT";
+    grid[7][colStart + 1] = "Họ và tên";
+    grid[7][colStart + 2] = "Ngày sinh";
+    grid[7][colStart + 3] = "Giới tính";
+    grid[7][colStart + 4] = "Số điện thoại";
+
+    for (let mIdx = 0; mIdx < block.members.length; ++mIdx) {
+      const m = block.members[mIdx];
+      const rowIdx = HEADER_OFFSET + mIdx;
+      grid[rowIdx][colStart] = mIdx + 1;
+      grid[rowIdx][colStart + 1] = m.name;
+      grid[rowIdx][colStart + 2] = m.dob;
+      grid[rowIdx][colStart + 3] = m.gender;
+      grid[rowIdx][colStart + 4] = m.phone;
+    }
+  }
+
+  sheet.getRange(1, 1, totalRows, totalCols).setValues(grid);
+
+  sheet.getRange(2, 2).setFontWeight("bold").setFontSize(14);
+  sheet.getRange(3, 1).setBackground("#f4cccc");
+
+  for (let bIdx = 0; bIdx < blocks.length; ++bIdx) {
+    const block = blocks[bIdx];
+    const colStart = bIdx * BLOCK_STRIDE;
+
+    sheet.getRange(4, colStart + 2).setFontWeight("bold");
+    _setZaloLinkCell(sheet, 7, colStart + 2, block.zaloLink);
+
+    const headerRange = sheet.getRange(8, colStart + 1, 1, BLOCK_WIDTH);
+    headerRange.setFontWeight("bold");
+    headerRange.setBackground("#4a86e8");
+    headerRange.setFontColor("white");
+    headerRange.setHorizontalAlignment("center");
+    headerRange.setVerticalAlignment("middle");
+    headerRange.setBorder(true, true, true, true, true, true);
+
+    for (let mIdx = 0; mIdx < block.members.length; ++mIdx) {
+      const m = block.members[mIdx];
+      const rowRange = sheet.getRange(
+        HEADER_OFFSET + mIdx + 1,
+        colStart + 1,
+        1,
+        BLOCK_WIDTH,
+      );
+      rowRange.setBorder(true, true, true, true, true, true);
+      rowRange.setHorizontalAlignment("center");
+      rowRange.setVerticalAlignment("middle");
+      if (!m.paid) {
+        rowRange.setBackground("#f4cccc");
+      }
+    }
+  }
+
+  for (let c = 1; c <= totalCols; c++) {
+    sheet.autoResizeColumn(c);
+  }
+}
+
