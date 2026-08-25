@@ -26,7 +26,7 @@
         12.2. A time trigger runs every 6 hours each day for execFilterDuplicate method
         12.3. A time trigger runs every 12 hours each day for execSyncDanhSachGuiMailSheet method
         12.4. A time trigger runs every 12 hours each day for execSendMail method
-13. [ ] Family distribution:
+13. [x] Family distribution:
         13.1. Divide into "gia đình xe Đoàn" (registered to travel with the main group) and "gia đình Tự Túc" (registered to travel independently).
         13.2. Family size: 20 members per family, including both males and females (with a minimum of 3 male and a maximum of 5 males per family). Always reserve at least 3 slots for male members in case there are too many female members when you go from the top to the bottom of the list.
         13.3. Family changes are not allowed after creation
