@@ -205,7 +205,7 @@ function filterDuplicate() {
       for (const item of cache[email]) {
         const currId = (item.name + item.dob.toString()).toLowerCase();
 
-        if (currId === prevId && i < item.idx) {
+        if (currId === prevId && i > item.idx) {
           setRowBackgroundColor(sheet, "#F28C28", i);
           sheet
             .getRange(i + 1, reportIdx + 1)
@@ -634,8 +634,8 @@ function createSuccessVerificationByBusMail(input) {
         <p>- Thiền sinh cân nhắc trước khi đăng ký, Đoàn sẽ chỉ có thể hỗ trợ hoàn trả lệ phí đối với các trường hợp huỷ trước ngày <b>${cancelDate}</b>.</p>
         <p>- Thiền sinh hoan hỉ di chuyển tới địa điểm tập trung sớm hơn để tránh rơi vào tình trạng ùn tắc. Đoàn sẽ xuất phát theo đúng lịch trình và không chờ những trường hợp tới muộn.</p>
         <div class="section-title">3. TÀI LIỆU THAM KHẢO TRƯỚC KHÓA TU</div>
-        <p>- <a href="http://www.thuongchieu.net/index.php/toathien">Phương pháp toạ thiền theo đường lối Thiền tông Việt Nam</a> - H.T Thích Thanh Từ</p>
-        <p>- Nhóm Zalo Thiền sinh <a href="${zaloGroupLink}">Link</a></p>
+        <p>- <a href="https://truclamchanhthien.net/phuong-phap-toa-thien-ht-thanh-tu/">Phương pháp toạ thiền theo đường lối Thiền tông Việt Nam</a> - H.T Thích Thanh Từ</p>
+        <p>- <b>Nhóm Zalo Thiền sinh </b> <a href="${zaloGroupLink}">Link</a></p>
 
         <div class="section-title">4. LƯU Ý CHUNG</div>
         <p>- Chuẩn bị ít nhất 2 bộ áo lam, 1 áo tràng.</p>
@@ -779,8 +779,8 @@ function createSuccessVerificationOwnVehicleMail(input) {
     )} ngày, tuân thủ nội quy khóa tu của Thiền Viện. Không sử dụng thiết bị điện tử cá nhân.</p>
 
       <div class="section-title">2. TÀI LIỆU THAM KHẢO TRƯỚC KHÓA TU</div>
-      <p>- <a href="http://www.thuongchieu.net/index.php/toathien">Phương pháp toạ thiền theo đường lối Thiền tông Việt Nam</a> - H.T Thích Thanh Từ</p>
-      <p>- Nhóm Zalo Thiền sinh <a href="${zaloGroupLink}">Link</a></p>
+      <p>- <a href="https://truclamchanhthien.net/phuong-phap-toa-thien-ht-thanh-tu/">Phương pháp toạ thiền theo đường lối Thiền tông Việt Nam</a> - H.T Thích Thanh Từ</p>
+      <p>- <b>Nhóm Zalo Thiền sinh </b> <a href="${zaloGroupLink}">Link</a></p>
 
       
       <div class="section-title">3. LƯU Ý CHUNG</div>
