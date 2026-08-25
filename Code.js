@@ -4,8 +4,8 @@ function onOpen() {
     .addItem("Tạo danh sách gửi mail", "initDanhSachGuiMailSheet")
     .addItem("Điền dữ liệu form từ sheet lưu trữ", "syncFormFromSavedData")
     .addItem("Sync chuyển khoản từ Sao kê", "syncPaymentFromSaoKe")
-    .addItem("Sync danh sách gửi mail", "syncDanhSachGuiMailSheet")
-    .addItem("Lọc trùng thiền sinh", "filterDuplicate")
+    .addItem("Sync danh sách gửi mail", "execSyncDanhSachGuiMailSheet")
+    .addItem("Lọc trùng thiền sinh", "execFilterDuplicate")
     .addItem("Tạo danh sách xe", "generateDanhSachXe")
     .addItem("In danh sách xe", "printDanhSachXe")
     .addToUi();
@@ -14,7 +14,7 @@ function onOpen() {
     .addItem("Gửi mail xác nhận toàn bộ", "execSendMail")
     .addItem(
       "Gửi mail nhắc chuyển tiền xe toàn bộ",
-      "testSendBusFeePaymentReminder"
+      "testSendBusFeePaymentReminder",
     )
     .addToUi();
 }
@@ -28,7 +28,7 @@ function initDanhSachGuiMailSheet() {
   const sourceSheet = ss.getSheetByName("Câu trả lời biểu mẫu 1");
   if (!sourceSheet) {
     throw new Error(
-      "Không tìm thấy sheet 'Câu trả lời biểu mẫu 1' để sao chép dữ liệu!"
+      "Không tìm thấy sheet 'Câu trả lời biểu mẫu 1' để sao chép dữ liệu!",
     );
   }
 
@@ -37,17 +37,17 @@ function initDanhSachGuiMailSheet() {
   }
 
   sheet = ss.insertSheet("Danh sách gửi mail");
-  initLuuTruSheet(ss);
+  _initLuuTruSheet(ss);
   console.log("Đã tạo danh sách gửi mail và Lưu trữ!");
 
-  cloneSheetData(sourceSheet, sheet);
+  _cloneSheetData(sourceSheet, sheet);
 
   const columns = [
     "Đã chuyển khoản",
     "Đã gửi mail đăng ký thành công",
     "Đã gửi mail nhắc chuyển tiền xe",
     "Thông báo",
-    "Lặp thiền sinh",
+    "Huỷ",
     "Note",
   ];
 
@@ -64,7 +64,7 @@ function initDanhSachGuiMailSheet() {
     const column = columns[i];
     const exists = currentHeaders.some(
       (header) =>
-        header && header.toString().toLowerCase() === column.toLowerCase()
+        header && header.toString().toLowerCase() === column.toLowerCase(),
     );
 
     if (!exists) {
@@ -86,20 +86,20 @@ function initDanhSachGuiMailSheet() {
     }
 
     console.log(
-      `Added ${headersToAdd.length} new columns: ${headersToAdd.join(", ")}`
+      `Đã thêm ${headersToAdd.length} cột mới: ${headersToAdd.join(", ")}`,
     );
   } else {
-    console.log("All required columns already exist in the sheet.");
+    console.log("Tất cả các cột bắt buộc đã tồn tại trong sheet.");
   }
 
   return sheet;
 }
 
-function syncDanhSachGuiMailSheet() {
+function execSyncDanhSachGuiMailSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("Danh sách gửi mail");
   const sourceSheet = ss.getSheetByName("Câu trả lời biểu mẫu 1");
-  cloneSheetData(sourceSheet, sheet);
+  _cloneSheetData(sourceSheet, sheet);
 }
 
 function syncFormFromSavedData() {
@@ -108,14 +108,14 @@ function syncFormFromSavedData() {
   const savedData = sheet
     .getRange(1, 1, sheet.getLastRow(), sheet.getLastColumn())
     .getValues();
-  const savedDataMap = getSavedDataCode(savedData);
+  const savedDataMap = _getSavedDataCode(savedData);
   const courseNameObj = savedDataMap.get("courseName");
   const formId = savedDataMap.get("formId").value;
 
   const form = FormApp.openById(formId);
   let desc = form.getDescription();
   if (desc.includes(courseNameObj.key)) {
-    desc = replaceTextInDescription(desc, savedDataMap);
+    desc = _replaceTextInDescription(desc, savedDataMap);
     form.setDescription(desc);
   }
 
@@ -129,53 +129,59 @@ function syncFormFromSavedData() {
 
       if (block.getType() === FormApp.ItemType.IMAGE) {
         curBlock = block.asImageItem();
-        const blockTitle = replaceTextInDescription(curBlock.getTitle(), savedDataMap);
+        const blockTitle = _replaceTextInDescription(
+          curBlock.getTitle(),
+          savedDataMap,
+        );
         curBlock.setTitle(blockTitle);
-        console.log(`Updated block ${curBlock.getTitle()} with ${blockTitle}`);
+        console.log(
+          `Đã cập nhật block ${curBlock.getTitle()} với ${blockTitle}`,
+        );
       }
       if (block.getType() === FormApp.ItemType.PAGE_BREAK) {
         curBlock = block.asPageBreakItem();
-        const blockDesc = replaceTextInDescription(curBlock.getHelpText(), savedDataMap);
+        const blockDesc = _replaceTextInDescription(
+          curBlock.getHelpText(),
+          savedDataMap,
+        );
         curBlock.setHelpText(blockDesc);
-        console.log(`Updated block ${curBlock.getTitle()} with ${blockDesc}`);
+        console.log(
+          `Đã cập nhật block ${curBlock.getTitle()} với ${blockDesc}`,
+        );
       }
-
     }
   }
 }
 
-function replaceTextInDescription(desc, savedDataMap) {
+function _replaceTextInDescription(desc, savedDataMap) {
   savedDataMap.forEach((sValue) => {
     if (desc.includes(sValue.key)) {
-      const currValue = sValue.value instanceof Date ?
-        `${sValue.value.getDate()}/${sValue.value.getMonth() + 1}/${sValue.value.getFullYear()}` :
-        sValue.value;
+      const currValue =
+        sValue.value instanceof Date
+          ? `${sValue.value.getDate()}/${sValue.value.getMonth() + 1}/${sValue.value.getFullYear()}`
+          : sValue.value;
 
       desc = desc.replaceAll(sValue.key, currValue);
     }
-  })
+  });
 
   return desc;
 }
 
-function filterDuplicate() {
+function execFilterDuplicate() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("Danh sách gửi mail");
   const lastRow = sheet.getLastRow();
   const lastCol = sheet.getLastColumn();
   const data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
 
-  const hIndice = getHeadersIndices(data[0]);
+  const hIndice = _getHeadersIndices(data[0]);
 
   const emailIdx = hIndice.get("email");
   const nameIdx = hIndice.get("studentIdx");
   const dobIdx = hIndice.get("dateOfBirth");
   const reportIdx = hIndice.get("report");
-  const markedIdx = hIndice.get("sttMarkedIdx");
-  const confirmMailSentIdx = hIndice.get("confirmMailSent");
-  const docCreatedIdx = hIndice.get("docCreateIdx");
-  const remindingEmailIdx = hIndice.get("remindingMailIdx");
-  const duplicateStudentIdx = hIndice.get("duplicateStudent");
+  const cancelledIdx = hIndice.get("cancelled");
 
   let cache = {};
 
@@ -187,7 +193,7 @@ function filterDuplicate() {
     const studentObj = { idx: i, email, name, dob };
     if (Array.isArray(cache[email])) {
       cache[email].every(
-        (item) => `${item.name}${item.dob}` !== `${name}${dob}`
+        (item) => `${item.name}${item.dob}` !== `${name}${dob}`,
       ) && cache[email].push(studentObj);
     } else {
       cache[email] = [studentObj];
@@ -205,21 +211,14 @@ function filterDuplicate() {
       for (const item of cache[email]) {
         const currId = (item.name + item.dob.toString()).toLowerCase();
 
-        if (currId === prevId && i > item.idx) {
-          setRowBackgroundColor(sheet, "#F28C28", i);
+        if (currId === prevId && i < item.idx) {
+          _setRowBackgroundColor(sheet, "#F28C28", i);
           sheet
             .getRange(i + 1, reportIdx + 1)
             .setValue(`Trùng với ${item.name}`);
-          markedIdx !== undefined &&
-            sheet.getRange(i + 1, markedIdx + 1).setValue("x");
-          confirmMailSentIdx !== undefined &&
-            sheet.getRange(i + 1, confirmMailSentIdx + 1).setValue("x");
-          docCreatedIdx !== undefined &&
-            sheet.getRange(i + 1, docCreatedIdx + 1).setValue("x");
-          remindingEmailIdx !== undefined &&
-            sheet.getRange(i + 1, remindingEmailIdx + 1).setValue("x");
-          duplicateStudentIdx !== undefined &&
-            sheet.getRange(i + 1, duplicateStudentIdx + 1).setValue("x");
+          cancelledIdx !== undefined &&
+            sheet.getRange(i + 1, cancelledIdx + 1).setValue("x");
+          _setRowBackgroundColor(sheet, "#F28C28", i);
 
           console.log(`Dòng ${i + 1} trùng bạn ${item.name}, email: ${email}`);
         }
@@ -254,31 +253,33 @@ function syncPaymentFromSaoKe() {
     .getRange(1, 1, danhSachLastRow, danhSachLastCol)
     .getValues();
 
-  const hIndice = getHeadersIndices(danhSachData[0]);
+  const hIndice = _getHeadersIndices(danhSachData[0]);
   const paymentIdx = hIndice.get("payment");
   const phoneIdx = hIndice.get("phoneNumber");
 
   if (paymentIdx === undefined) {
     console.log(
-      "Không tìm thấy cột 'Đã chuyển khoản' trong sheet 'Danh sách gửi mail'!");
+      "Không tìm thấy cột 'Đã chuyển khoản' trong sheet 'Danh sách gửi mail'!",
+    );
     return;
   }
   if (phoneIdx === undefined) {
     console.log(
-      "Không tìm thấy cột số điện thoại trong sheet 'Danh sách gửi mail'!");
+      "Không tìm thấy cột số điện thoại trong sheet 'Danh sách gửi mail'!",
+    );
     return;
   }
 
   // Read sao ke up to column BA (53 columns)
-  const saoKeData = saoKeSheet
-    .getRange(2, 1, saoKeLastRow - 1, 53)
-    .getValues();
+  const saoKeData = saoKeSheet.getRange(2, 1, saoKeLastRow - 1, 53).getValues();
 
   // Transfer note format: "Sender Name - PhoneNumber - Code"
   const transferNoteRegex = /^.+\s*-\s*((?:0|\+84)\d{8,10})\s*-\s*.+$/;
 
-  const savedData = getSavedData();
-  const busFee = Number(savedData.get("busFee").toLowerCase().split("vnd")[0].split(",").join(""))
+  const savedData = _getSavedData();
+  const busFee = Number(
+    savedData.get("busFee").toLowerCase().split("vnd")[0].split(",").join(""),
+  );
 
   let updatedCount = 0;
 
@@ -295,7 +296,7 @@ function syncPaymentFromSaoKe() {
 
     const transferAmount = row[transferAmountColIdx];
     if (!transferAmount || typeof transferAmount !== "string") continue;
-    const amount = Number(transferAmount.split(',').join(''))
+    const amount = Number(transferAmount.split(",").join(""));
     if (amount !== busFee) continue;
 
     let found = false;
@@ -304,7 +305,7 @@ function syncPaymentFromSaoKe() {
         .trim()
         .replace(/\s+/g, "");
       if (rowPhone === phoneNumber) {
-        console.log('syncPaymentFromSaoKe', note);
+        console.log("syncPaymentFromSaoKe", note);
         danhSachSheet.getRange(j + 1, paymentIdx + 1).setValue("x");
         found = true;
       }
@@ -326,7 +327,9 @@ function generateDanhSachXe() {
   const ui = SpreadsheetApp.getUi();
 
   if (ss.getSheetByName("Danh sách xe")) {
-    ui.alert("Sheet 'Danh sach xe' đã tồn tại. Xóa sheet này trước khi tạo lại.");
+    ui.alert(
+      "Sheet 'Danh sach xe' đã tồn tại. Xóa sheet này trước khi tạo lại.",
+    );
     return;
   }
 
@@ -344,7 +347,7 @@ function generateDanhSachXe() {
   }
 
   const data = sourceSheet.getRange(1, 1, lastRow, lastCol).getValues();
-  const hIndice = getHeadersIndices(data[0]);
+  const hIndice = _getHeadersIndices(data[0]);
 
   const vehicleIdx = hIndice.get("vehicle");
   const paymentIdx = hIndice.get("payment");
@@ -352,10 +355,12 @@ function generateDanhSachXe() {
   const dobIdx = hIndice.get("dateOfBirth");
   const genderIdx = hIndice.get("gender");
   const phoneIdx = hIndice.get("phoneNumber");
-  const duplicateStudentIdx = hIndice.get("duplicateStudent");
+  const cancelledIdx = hIndice.get("cancelled");
 
   if (vehicleIdx === undefined) {
-    ui.alert("Không tìm thấy cột phương thức di chuyển trong 'Danh sách gửi mail'!");
+    ui.alert(
+      "Không tìm thấy cột phương thức di chuyển trong 'Danh sách gửi mail'!",
+    );
     return;
   }
   if (nameIdx === undefined) {
@@ -371,22 +376,24 @@ function generateDanhSachXe() {
     const name = row[nameIdx] ? row[nameIdx].toString().trim() : "";
     if (!name) continue;
 
-    // Skip duplicate students
-    const isDuplicate = duplicateStudentIdx !== undefined ? row[duplicateStudentIdx] === "x" : false;
-    if (isDuplicate) {
-      console.log(`Skipping duplicate student: ${name} at row ${i + 1}`);
+    const isCancelled =
+      cancelledIdx !== undefined && _isCancelledValue(row[cancelledIdx]);
+    if (isCancelled) {
+      console.log(`Bỏ qua thiền sinh đã huỷ: ${name} tại dòng ${i + 1}`);
       continue;
     }
 
-    const vehicle = vehicleIdx !== undefined ? row[vehicleIdx].toString().toLowerCase() : "";
+    const vehicle =
+      vehicleIdx !== undefined ? row[vehicleIdx].toString().toLowerCase() : "";
     const payment = paymentIdx !== undefined ? row[paymentIdx] : "";
     const dob = dobIdx !== undefined ? row[dobIdx] : "";
-    const gender = genderIdx !== undefined ? row[genderIdx].toString().trim() : "";
+    const gender =
+      genderIdx !== undefined ? row[genderIdx].toString().trim() : "";
     const phone = phoneIdx !== undefined ? row[phoneIdx].toString().trim() : "";
 
     const passenger = {
       sourceRow: i,
-      name: name,
+      name: name.toUpperCase(),
       dob,
       gender: gender,
       phone: phone,
@@ -407,12 +414,14 @@ function generateDanhSachXe() {
   const tuTucGroups = _allocateTuTucGroups(tuTucPassengers, TU_TUC_CAPACITY);
 
   const blocks = [];
-  xeDoanBuses.forEach((bus, i) => {
+  for (let i = 0; i < xeDoanBuses.length; ++i) {
+    const bus = xeDoanBuses[i];
     blocks.push({ title: `DANH SÁCH XE ${i + 1}`, passengers: bus });
-  });
-  tuTucGroups.forEach((group, i) => {
+  }
+  for (let i = 0; i < tuTucGroups.length; ++i) {
+    const group = tuTucGroups[i];
     blocks.push({ title: `DANH SÁCH ĐI TỰ TÚC ${i + 1}`, passengers: group });
-  });
+  }
 
   if (blocks.length === 0) {
     ui.alert("Không có thiền sinh nào đăng ký đi xe!");
@@ -423,7 +432,9 @@ function generateDanhSachXe() {
   _renderDanhSachXeSheet(outputSheet, blocks);
 
   console.log(`Đã tạo Danh sach xe với ${blocks.length} nhóm.`);
-  ui.alert(`Đã tạo Danh sach xe thành công:\n- ${xeDoanBuses.length} xe đoàn (${xeDoanPassengers.length} thiền sinh)\n- ${tuTucGroups.length} nhóm tự túc (${tuTucPassengers.length} thiền sinh)`);
+  ui.alert(
+    `Đã tạo Danh sach xe thành công:\n- ${xeDoanBuses.length} xe đoàn (${xeDoanPassengers.length} thiền sinh)\n- ${tuTucGroups.length} nhóm tự túc (${tuTucPassengers.length} thiền sinh)`,
+  );
 }
 
 function printDanhSachXe() {
@@ -436,7 +447,7 @@ function printDanhSachXe() {
     return;
   }
 
-  const savedData = getSavedData();
+  const savedData = _getSavedData();
   const folderId = savedData.get("danhSachXeFolderId");
   if (!folderId) {
     ui.alert("Chưa có Folder ID danh sách xe trong sheet Lưu trữ.");
@@ -453,8 +464,12 @@ function printDanhSachXe() {
 
   const lastRow = danhSachXeSheet.getLastRow();
   const lastCol = danhSachXeSheet.getLastColumn();
-  const data = danhSachXeSheet.getRange(1, 1, lastRow, lastCol).getDisplayValues();
-  const backgrounds = danhSachXeSheet.getRange(1, 1, lastRow, lastCol).getBackgrounds();
+  const data = danhSachXeSheet
+    .getRange(1, 1, lastRow, lastCol)
+    .getDisplayValues();
+  const backgrounds = danhSachXeSheet
+    .getRange(1, 1, lastRow, lastCol)
+    .getBackgrounds();
 
   // Extract "DANH SÁCH XE" groups only (stride 6: 5 data + 1 spacer)
   // Title and leader are written at colStart+1 (see _renderDanhSachXeSheet)
@@ -464,7 +479,9 @@ function printDanhSachXe() {
     const busTitle = String(data[3][startColIdx + 1]).trim(); // row 4, name col (0-indexed)
     if (!busTitle.startsWith("DANH SÁCH XE")) continue;
 
-    const hasData = data.slice(8).some(row => String(row[startColIdx]).trim() !== "");
+    const hasData = data
+      .slice(8)
+      .some((row) => String(row[startColIdx]).trim() !== "");
     if (!hasData) continue;
 
     // Extract leader name from "Trưởng gia đình: NAME"
@@ -475,7 +492,7 @@ function printDanhSachXe() {
     const passengerRows = [];
     for (let r = 8; r < lastRow; r++) {
       const rowData = data[r].slice(startColIdx, startColIdx + 5);
-      if (rowData.every(cell => String(cell).trim() === "")) break;
+      if (rowData.every((cell) => String(cell).trim() === "")) break;
       const unpaid = backgrounds[r][startColIdx] === "#f4cccc";
       passengerRows.push({ cells: rowData.map(String), unpaid });
     }
@@ -489,7 +506,7 @@ function printDanhSachXe() {
   }
 
   // One file per bus — each copy preserves template images and formatting
-  busGroups.forEach(group => {
+  for (const group of busGroups) {
     const newFile = templateFile.makeCopy(group.busTitle, folder);
     const doc = DocumentApp.openById(newFile.getId());
     const body = doc.getBody();
@@ -501,7 +518,7 @@ function printDanhSachXe() {
     // Append passenger table
     const tableData = [
       ["STT", "Họ và tên", "Ngày sinh", "Giới tính", "Số điện thoại"],
-      ...group.passengerRows.map(p => p.cells),
+      ...group.passengerRows.map((p) => p.cells),
     ];
     const table = body.appendTable(tableData);
 
@@ -518,6 +535,10 @@ function printDanhSachXe() {
         cell.setPaddingBottom(2);
         cell.setPaddingLeft(2);
         cell.setPaddingRight(2);
+        cell
+          .getChild(0)
+          .asParagraph()
+          .setAlignment(DocumentApp.HorizontalAlignment.CENTER);
       }
     }
 
@@ -528,23 +549,24 @@ function printDanhSachXe() {
     }
 
     // Red background for unpaid passengers
-    group.passengerRows.forEach((p, pIdx) => {
-      if (!p.unpaid) return;
+    for (let pIdx = 0; pIdx < group.passengerRows.length; ++pIdx) {
+      const p = group.passengerRows[pIdx];
+      if (!p.unpaid) continue;
       const row = table.getRow(pIdx + 1);
       for (let c = 0; c < 5; c++) {
         row.getCell(c).setBackgroundColor("#f4cccc");
       }
-    });
+    }
 
     doc.saveAndClose();
-  });
+  }
 
   ui.alert("Đã tạo " + busGroups.length + " file trong thư mục Danh sách xe.");
 }
 
 // ------------ EMAIL TEMPLATE FUNCTIONS ------------
 
-function createSuccessVerificationByBusMail(input) {
+function _createSuccessVerificationByBusMail(input) {
   const {
     courseName,
     startDate,
@@ -615,16 +637,16 @@ function createSuccessVerificationByBusMail(input) {
         <p class="greeting">Thân chào bạn,</p>
 
         <p>Đoàn Thanh Thiếu Niên Phật Tử Trúc Lâm Tây Thiên xác nhận bạn đã đăng ký thành công tham gia <b>Khóa tu ${courseName}</b> tại Thiền viện Trúc Lâm Tây Thiên.</p>
-        
+
         <div class="section-title">1. THÔNG TIN KHÓA TU</div>
         <p>- Thời gian: <b>${startDate} - ${endDate}</b></p>
         <p>- Địa điểm: Thiền viện Trúc Lâm Tây Thiên, Tam Đảo, Vĩnh Phúc</p>
         <p>- Đối tượng: ${targetAudience}</p>
         <p>- Số lượng: ${numberOfStudents} thiền sinh</p>
-        <p>- Yêu cầu: Cam kết tham gia đủ ${calculateNumberOfDays(
-      startDate,
-      endDate
-    )} ngày, tuân thủ nội quy khóa tu của Thiền Viện. Không sử dụng thiết bị điện tử cá nhân.</p>
+        <p>- Yêu cầu: Cam kết tham gia đủ ${_calculateNumberOfDays(
+          startDate,
+          endDate,
+        )} ngày, tuân thủ nội quy khóa tu của Thiền Viện. Không sử dụng thiết bị điện tử cá nhân.</p>
 
         <div class="section-title">2. THÔNG TIN DI CHUYỂN</div>
         <p>- Thời gian tập trung: <b>${busReadyTime} ngày ${startDate}</b></p>
@@ -634,19 +656,19 @@ function createSuccessVerificationByBusMail(input) {
         <p>- Thiền sinh cân nhắc trước khi đăng ký, Đoàn sẽ chỉ có thể hỗ trợ hoàn trả lệ phí đối với các trường hợp huỷ trước ngày <b>${cancelDate}</b>.</p>
         <p>- Thiền sinh hoan hỉ di chuyển tới địa điểm tập trung sớm hơn để tránh rơi vào tình trạng ùn tắc. Đoàn sẽ xuất phát theo đúng lịch trình và không chờ những trường hợp tới muộn.</p>
         <div class="section-title">3. TÀI LIỆU THAM KHẢO TRƯỚC KHÓA TU</div>
-        <p>- <a href="https://truclamchanhthien.net/phuong-phap-toa-thien-ht-thanh-tu/">Phương pháp toạ thiền theo đường lối Thiền tông Việt Nam</a> - H.T Thích Thanh Từ</p>
-        <p>- <b>Nhóm Zalo Thiền sinh </b> <a href="${zaloGroupLink}">Link</a></p>
+        <p>- <a href="http://www.thuongchieu.net/index.php/toathien">Phương pháp toạ thiền theo đường lối Thiền tông Việt Nam</a> - H.T Thích Thanh Từ</p>
+        <p>- Nhóm Zalo Thiền sinh <a href="${zaloGroupLink}">Link</a></p>
 
         <div class="section-title">4. LƯU Ý CHUNG</div>
         <p>- Chuẩn bị ít nhất 2 bộ áo lam, 1 áo tràng.</p>
         <p>- Thiền sinh khi đã đăng ký khóa tu mà có việc đột xuất không tham gia được xin hoan hỷ báo lại sớm để BTC có thể kịp thời sắp xếp.</p>
         <p>- Tịnh tài cúng dường là <b>TÙY HỶ</b> để tạo phước đức cho bản thân và trợ duyên cho Thiền Viện chi phí tổ chức khoá tu.</p>
-        
+
         <p>Mọi thông tin vui lòng liên hệ:</p>
         <p>1. ${contactName}: <b>${contactPhone}</b></p>
         <p>2. ${contactName2}: <b>${contactPhone2}</b></p>
         <p>Hẹn gặp lại bạn tại Khóa tu ${courseName} và chúc bạn một ngày an vui!</p>
-        
+
         <p class="signature">Thân ái,</p>
         <p class="signature">TM. BAN TỔ CHỨC KHÓA TU ${courseName}</p>
       </body>
@@ -655,7 +677,7 @@ function createSuccessVerificationByBusMail(input) {
   };
 }
 
-function createSuccessVerificationOwnVehicleMail(input) {
+function _createSuccessVerificationOwnVehicleMail(input) {
   const {
     courseName,
     startDate,
@@ -766,44 +788,44 @@ function createSuccessVerificationOwnVehicleMail(input) {
       <p class="greeting">Thân chào bạn,</p>
 
       <p>Đoàn Thanh Thiếu Niên Phật Tử Trúc Lâm Tây Thiên xác nhận bạn đã đăng ký thành công tham gia <b>Khóa tu ${courseName}</b> tại Thiền viện Trúc Lâm Tây Thiên.</p>
-      
+
       <div class="section-title">1. THÔNG TIN KHÓA TU</div>
       <p>- Thời gian: <b>${startDate} - ${endDate}</b></p>
       <p>- Địa điểm: Thiền viện Trúc Lâm Tây Thiên, Tam Đảo, Vĩnh Phúc</p>
       <p>- Đối tượng: ${targetAudience}</p>
       <p>- Số lượng: ${numberOfStudents} thiền sinh</p>
       <p>- Thời gian tập trung: Thiền sinh hoan hỉ có mặt tại giảng đường Thiền Viện <b>trước ${arrivalTime}</b> để hoàn tất đăng ký và làm thủ tục nhập khóa.</p>
-      <p>- Yêu cầu: Cam kết tham gia đủ ${calculateNumberOfDays(
-      startDate,
-      endDate
-    )} ngày, tuân thủ nội quy khóa tu của Thiền Viện. Không sử dụng thiết bị điện tử cá nhân.</p>
+      <p>- Yêu cầu: Cam kết tham gia đủ ${_calculateNumberOfDays(
+        startDate,
+        endDate,
+      )} ngày, tuân thủ nội quy khóa tu của Thiền Viện. Không sử dụng thiết bị điện tử cá nhân.</p>
 
       <div class="section-title">2. TÀI LIỆU THAM KHẢO TRƯỚC KHÓA TU</div>
-      <p>- <a href="https://truclamchanhthien.net/phuong-phap-toa-thien-ht-thanh-tu/">Phương pháp toạ thiền theo đường lối Thiền tông Việt Nam</a> - H.T Thích Thanh Từ</p>
-      <p>- <b>Nhóm Zalo Thiền sinh </b> <a href="${zaloGroupLink}">Link</a></p>
+      <p>- <a href="http://www.thuongchieu.net/index.php/toathien">Phương pháp toạ thiền theo đường lối Thiền tông Việt Nam</a> - H.T Thích Thanh Từ</p>
+      <p>- Nhóm Zalo Thiền sinh <a href="${zaloGroupLink}">Link</a></p>
 
-      
+
       <div class="section-title">3. LƯU Ý CHUNG</div>
       <p>- Chuẩn bị ít nhất 2 bộ áo lam, 1 áo tràng.</p>
       <p>- Khi có việc đột xuất không tham gia được khóa tu, mong bạn báo lại sớm để Ban tổ chức có thể kịp thời sắp xếp.</p>
       <p>- Tịnh tài cúng dường là <b>TÙY HỶ</b> để tạo phước đức cho bản thân và trợ duyên cho Thiền Viện chi phí tổ chức khoá tu.</p>
-      
+
       <p>Mọi thông tin vui lòng liên hệ:</p>
       <p>1. ${contactName}: <b>${contactPhone}</b></p>
       <p>2. ${contactName2}: <b>${contactPhone2}</b></p>
       <p>Hẹn gặp lại bạn tại Khóa tu ${courseName} và chúc bạn một ngày an vui!</p>
-      
-      
+
+
       <p class="signature">Thân ái,</p>
       <p class="signature">TM. BAN TỔ CHỨC KHÓA TU ${courseName}</p>
-      
+
   </body>
   </html>
 `,
   };
 }
 
-function createPaymentReminderMail(input) {
+function _createPaymentReminderMail(input) {
   const {
     courseName,
     cancelDate,
@@ -876,23 +898,23 @@ function createPaymentReminderMail(input) {
       <p>Đoàn Thanh Thiếu Niên Phật Tử Trúc Lâm Tây Thiên - Trần Nhân Tông đã nhận được thông tin của bạn đăng ký đi xe ô tô với Đoàn tham gia Khoá tu ${courseName} tại Thiền viện Trúc Lâm Tây Thiên. Tuy nhiên, Đoàn vẫn chưa nhận được thông tin chuyển khoản lệ phí đi xe ô tô của bạn.</p>
 
       <p>Bạn vui lòng hoàn thành chuyển khoản lệ phí đi xe ô tô với Đoàn để được xác nhận đăng kí thành công tham gia làm thiền sinh khóa tu. Cụ thể:</p>
-      
+
       <div class="section-title">1. Xác nhận đăng ký đối với Thiền sinh đi xe ô tô Đoàn tổ chức:</div>
       <p>- Chuyển khoản lệ phí đi xe ô tô: ${busFee}/người/2 chiều.</p>
       <p>- Thông tin chuyển khoản lệ phí xe ô tô:</p>
       <p class="indent">+ Ngân hàng ${bankName} - Chủ TK: ${bankAccountName}- Số TK: ${bankAccountNumber}</p>
       <p class="indent">+ Nội dung chuyển khoản <span class="important">BẮT BUỘC CẦN</span> ghi rõ: Họ tên người Đăng kí – SĐT – ${courseName}</p>
-      
+
       <p class="indent">+ Chụp ảnh màn hình đã chuyển khoản để đính kèm và trả lời vào email (ghi rõ Họ tên - SĐT đã đăng kí). <span class="emoji">☘️</span></p>
-      
+
       <p class="section-title">2. Sau khi hoàn thành chuyển khoản đăng kí đi xe ô tô với Đoàn: <span class="highlight">Đoàn sẽ gửi email xác nhận bạn đã đăng kí thành công.</span></p>
-      
+
       <p>Trường hợp bạn không hoàn thành trước ngày ${cancelDate}, Ban tổ chức xác nhận bạn huỷ đăng ký tham gia Khoá tu ${courseName}</p>
-      
+
       <p class="signature">Chúc bạn ngày an vui,</p>
       <p class="signature">Đoàn Thanh Thiếu Niên Phật Tử Trúc Lâm Tây Thiên.</p>
   </body>
-</html> 
+</html>
   `,
   };
 }
@@ -904,12 +926,12 @@ function execSendMail() {
   const lastRow = sheet.getLastRow();
   const lastColumn = sheet.getLastColumn();
   if (lastRow === 0) {
-    console.log("No data found in the sheet.");
+    console.log("Không tìm thấy dữ liệu trong sheet.");
     return;
   }
 
   const allData = sheet.getRange(1, 1, lastRow, lastColumn).getValues();
-  const hIndices = getHeadersIndices(allData[0]);
+  const hIndices = _getHeadersIndices(allData[0]);
 
   const emailIndices = hIndices.get("email");
   const emailIdx = emailIndices ? emailIndices[0] : undefined;
@@ -918,36 +940,48 @@ function execSendMail() {
   const confirmMailIdx = hIndices.get("confirmMailSent");
   const reminderMailIdx = hIndices.get("remindingMailIdx");
   const reportIdx = hIndices.get("report");
+  const cancelledIdx = hIndices.get("cancelled");
 
   if (emailIdx === undefined || vehicleIdx === undefined) {
-    console.log("Missing required columns (email or vehicle). Aborting.");
+    console.log("Thiếu cột bắt buộc (email hoặc phương tiện). Đã huỷ.");
     return;
   }
 
-  const savedDataMap = getSavedData();
+  const savedDataMap = _getSavedData();
   const paymentDeadline = savedDataMap.get("deadlinePayment");
 
   for (let row = 0; row < allData.length; row++) {
     if (row === 0) continue;
 
     const rowData = allData[row];
+    if (
+      cancelledIdx !== undefined &&
+      _isCancelledValue(rowData[cancelledIdx])
+    ) {
+      console.log(`Bỏ qua thiền sinh đã huỷ tại dòng ${row + 1}`);
+      continue;
+    }
+
     const email = rowData[emailIdx];
     const vehicle = rowData[vehicleIdx];
     const byBus = vehicle === "Đi ô tô cùng Đoàn";
-    const paidBusFee = paymentIdx !== undefined && rowData[paymentIdx]
-      ? rowData[paymentIdx].toString().toLowerCase()
-      : '';
+    const paidBusFee =
+      paymentIdx !== undefined && rowData[paymentIdx]
+        ? rowData[paymentIdx].toString().toLowerCase()
+        : "";
     const personalVehicle = vehicle === "Tự túc phương tiện";
-    const confirmMailSent = confirmMailIdx !== undefined ? rowData[confirmMailIdx] : '';
-    const sentReminderMail = reminderMailIdx !== undefined ? rowData[reminderMailIdx] : '';
+    const confirmMailSent =
+      confirmMailIdx !== undefined ? rowData[confirmMailIdx] : "";
+    const sentReminderMail =
+      reminderMailIdx !== undefined ? rowData[reminderMailIdx] : "";
 
     if (
       email &&
       !confirmMailSent &&
       (personalVehicle || (byBus && paidBusFee.includes("x")))
     ) {
-      console.log(`Send successful registration email to: ${email}`);
-      sendRegisterSuccessful({ sheet, row, email, byBus, hIndices });
+      console.log(`Gửi mail đăng ký thành công đến: ${email}`);
+      _sendRegisterSuccessful({ sheet, row, email, byBus, hIndices });
     }
 
     if (
@@ -956,32 +990,33 @@ function execSendMail() {
       email &&
       !confirmMailSent &&
       !sentReminderMail &&
-      isLatePayment(paymentDeadline)
+      _isLatePayment(paymentDeadline)
     ) {
-      console.log(`Sent payment reminder to ${email}`);
-      sendBusFeePaymentReminder(sheet, row, email, hIndices);
+      console.log(`Đã gửi mail nhắc chuyển tiền đến ${email}`);
+      _sendBusFeePaymentReminder(sheet, row, email, hIndices);
     }
 
     // Clean up errored row has been fixed
-    const hasError = reportIdx !== undefined &&
+    const hasError =
+      reportIdx !== undefined &&
       (rowData[reportIdx] === "Lỗi mail phí xe!" ||
         rowData[reportIdx] === "Lỗi mail xác nhận!");
     if ((confirmMailSent || sentReminderMail) && hasError) {
-      setRowBackgroundColor(sheet, "white", row);
+      _setRowBackgroundColor(sheet, "white", row);
       sheet.getRange(row + 1, reportIdx + 1).setValue("");
     }
   }
 }
 
-function sendRegisterSuccessful({ sheet, row, email, byBus, hIndices }) {
+function _sendRegisterSuccessful({ sheet, row, email, byBus, hIndices }) {
   const confirmMailIdx = hIndices.get("confirmMailSent");
   const reportIdx = hIndices.get("report");
 
-  const savedDataMap = getSavedData();
+  const savedDataMap = _getSavedData();
   const commonData = {
     courseName: savedDataMap.get("courseName"),
-    startDate: formatDate(savedDataMap.get("startDate")),
-    endDate: formatDate(savedDataMap.get("endDate")),
+    startDate: _formatDate(savedDataMap.get("startDate")),
+    endDate: _formatDate(savedDataMap.get("endDate")),
     targetAudience: savedDataMap.get("targetAudience"),
     numberOfStudents: savedDataMap.get("numberOfStudents"),
     zaloGroupLink: savedDataMap.get("zaloGroupLink"),
@@ -989,10 +1024,10 @@ function sendRegisterSuccessful({ sheet, row, email, byBus, hIndices }) {
     contactPhone: savedDataMap.get("contactPhone"),
     contactName2: savedDataMap.get("contactName2"),
     contactPhone2: savedDataMap.get("contactPhone2"),
-    cancelDate: formatDate(savedDataMap.get("cancelDate")),
+    cancelDate: _formatDate(savedDataMap.get("cancelDate")),
     imageLink: savedDataMap.get("imageLink"),
   };
-  const successVerificationByBusMail = createSuccessVerificationByBusMail({
+  const successVerificationByBusMail = _createSuccessVerificationByBusMail({
     ...commonData,
     endTime: savedDataMap.get("endTime"),
     busReadyTime: savedDataMap.get("busReadyTime"),
@@ -1005,28 +1040,28 @@ function sendRegisterSuccessful({ sheet, row, email, byBus, hIndices }) {
       GmailApp.sendEmail(email, successVerificationByBusMail.subject, "", {
         htmlBody: successVerificationByBusMail.content,
       });
-      console.log(`Sent to ${email} by bus`);
+      console.log(`Đã gửi đến ${email} - đi xe đoàn`);
     } else {
       const successVerificationOwnVehicleMail =
-        createSuccessVerificationOwnVehicleMail({
+        _createSuccessVerificationOwnVehicleMail({
           ...commonData,
           arrivalTime: savedDataMap.get("arrivalTime"),
         });
       GmailApp.sendEmail(email, successVerificationOwnVehicleMail.subject, "", {
         htmlBody: successVerificationOwnVehicleMail.content,
       });
-      console.log(`Sent to ${email} own vehicle`);
+      console.log(`Đã gửi đến ${email} - tự túc phương tiện`);
     }
     if (confirmMailIdx !== undefined) {
       sheet.getRange(row + 1, confirmMailIdx + 1).setValue("x");
     }
-    setRowBackgroundColor(sheet, "white", row);
+    _setRowBackgroundColor(sheet, "white", row);
     if (reportIdx !== undefined) {
       sheet.getRange(row + 1, reportIdx + 1).setValue("");
     }
   } catch (error) {
     console.log(`sendingRegisterSuccessful: ${error}`);
-    setRowBackgroundColor(sheet, "#ffdddd", row);
+    _setRowBackgroundColor(sheet, "#ffdddd", row);
     if (reportIdx !== undefined) {
       sheet.getRange(row + 1, reportIdx + 1).setValue("Lỗi mail xác nhận!");
     }
@@ -1040,12 +1075,12 @@ function testSendBusFeePaymentReminder() {
   const lastRow = sheet.getLastRow();
   const lastColumn = sheet.getLastColumn();
   if (lastRow === 0) {
-    console.log("No data found in the sheet.");
+    console.log("Không tìm thấy dữ liệu trong sheet.");
     return;
   }
 
   const allData = sheet.getRange(1, 1, lastRow, lastColumn).getValues();
-  const hIndices = getHeadersIndices(allData[0]);
+  const hIndices = _getHeadersIndices(allData[0]);
 
   const emailIndices = hIndices.get("email");
   const emailIdx = emailIndices ? emailIndices[0] : undefined;
@@ -1053,40 +1088,57 @@ function testSendBusFeePaymentReminder() {
   const paymentIdx = hIndices.get("payment");
   const confirmMailIdx = hIndices.get("confirmMailSent");
   const reminderMailIdx = hIndices.get("remindingMailIdx");
+  const cancelledIdx = hIndices.get("cancelled");
 
   for (let row = 0; row < allData.length; row++) {
     if (row === 0) continue;
 
     const rowData = allData[row];
-    const vehicle = vehicleIdx !== undefined ? rowData[vehicleIdx] : '';
-    const byBus = vehicle === "Đi ô tô cùng Đoàn";
-    const sentReminderMail = reminderMailIdx !== undefined ? rowData[reminderMailIdx] : '';
-    const email = emailIdx !== undefined ? rowData[emailIdx] : '';
-    const paid = paymentIdx !== undefined && rowData[paymentIdx] ? rowData[paymentIdx].toString() : '';
-    const confirmMailSent = confirmMailIdx !== undefined && rowData[confirmMailIdx] ? rowData[confirmMailIdx].toString() : '';
+    if (
+      cancelledIdx !== undefined &&
+      _isCancelledValue(rowData[cancelledIdx])
+    ) {
+      console.log(`testSendBusFeePaymentReminder: đã huỷ`);
+      continue;
+    }
 
-    if (sentReminderMail.toString().toLowerCase() === "x" ||
+    const vehicle = vehicleIdx !== undefined ? rowData[vehicleIdx] : "";
+    const byBus = vehicle === "Đi ô tô cùng Đoàn";
+    const sentReminderMail =
+      reminderMailIdx !== undefined ? rowData[reminderMailIdx] : "";
+    const email = emailIdx !== undefined ? rowData[emailIdx] : "";
+    const paid =
+      paymentIdx !== undefined && rowData[paymentIdx]
+        ? rowData[paymentIdx].toString()
+        : "";
+    const confirmMailSent =
+      confirmMailIdx !== undefined && rowData[confirmMailIdx]
+        ? rowData[confirmMailIdx].toString()
+        : "";
+
+    if (
+      sentReminderMail.toString().toLowerCase() === "x" ||
       !email ||
       !byBus ||
       paid.toLowerCase() === "x" ||
       confirmMailSent.toLowerCase() === "x"
     ) {
-      console.log(`testSendBusFeePaymentReminder: already sent or invalid`);
+      console.log(`testSendBusFeePaymentReminder: đã gửi hoặc không hợp lệ`);
       continue;
     }
-    sendBusFeePaymentReminder(sheet, row, email, hIndices);
-    console.log(`testSendBusFeePaymentReminder: sent`);
+    _sendBusFeePaymentReminder(sheet, row, email, hIndices);
+    console.log(`testSendBusFeePaymentReminder: đã gửi`);
   }
 }
 
-function sendBusFeePaymentReminder(sheet, row, email, hIndices) {
+function _sendBusFeePaymentReminder(sheet, row, email, hIndices) {
   const reminderMailIdx = hIndices.get("remindingMailIdx");
   const reportIdx = hIndices.get("report");
 
-  const savedDataMap = getSavedData();
-  const paymentReminderMail = createPaymentReminderMail({
+  const savedDataMap = _getSavedData();
+  const paymentReminderMail = _createPaymentReminderMail({
     courseName: savedDataMap.get("courseName"),
-    cancelDate: formatDate(savedDataMap.get("cancelDate")),
+    cancelDate: _formatDate(savedDataMap.get("cancelDate")),
     busFee: savedDataMap.get("busFee"),
     bankName: savedDataMap.get("bankName"),
     bankAccountNumber: savedDataMap.get("bankAccountNumber"),
@@ -1101,7 +1153,7 @@ function sendBusFeePaymentReminder(sheet, row, email, hIndices) {
     }
   } catch (error) {
     console.log(`sendBusFeePaymentReminder: ${error}`);
-    setRowBackgroundColor(sheet, "#ffdddd", row);
+    _setRowBackgroundColor(sheet, "#ffdddd", row);
     if (reportIdx !== undefined) {
       sheet.getRange(row + 1, reportIdx + 1).setValue("Lỗi mail phí xe!");
     }
@@ -1110,14 +1162,22 @@ function sendBusFeePaymentReminder(sheet, row, email, hIndices) {
 
 // ------------ UTILITY FUNCTIONS ------------
 
-function setRowBackgroundColor(sheet, color, row) {
+function _setRowBackgroundColor(sheet, color, row) {
   const rowRange = sheet.getRange(row + 1, 1, 1, sheet.getLastColumn());
   rowRange.setBackground(color);
 }
 
-function isLatePayment(date) {
+function _isCancelledValue(value) {
+  if (value === true) return true;
+  if (typeof value !== "string") return false;
+
+  const normalized = value.trim().toLowerCase();
+  return normalized === "x";
+}
+
+function _isLatePayment(date) {
   if (!date) {
-    console.log("Can not process empty date");
+    console.log("Không thể xử lý ngày trống");
     return false;
   }
 
@@ -1130,10 +1190,15 @@ function isLatePayment(date) {
   );
 }
 
-function cloneSheetData(sourceSheet, targetSheet) {
+function _cloneSheetData(sourceSheet, targetSheet) {
   // Clone all data from source sheet
   const lastSelectedColumn = sourceSheet.getLastColumn();
-  const sourceRange = sourceSheet.getRange(1, 1, sourceSheet.getLastRow(), lastSelectedColumn);
+  const sourceRange = sourceSheet.getRange(
+    1,
+    1,
+    sourceSheet.getLastRow(),
+    lastSelectedColumn,
+  );
   if (sourceRange.getNumRows() > 0) {
     const sourceData = sourceRange.getValues();
     const targetRange = targetSheet.getRange(
@@ -1145,29 +1210,20 @@ function cloneSheetData(sourceSheet, targetSheet) {
     targetRange.setValues(sourceData);
 
     // Copy formatting from first row (headers)
-    const sourceHeaderRange = sourceSheet.getRange(
-      1,
-      1,
-      1,
-      lastSelectedColumn
-    );
-    const targetHeaderRange = targetSheet.getRange(
-      1,
-      1,
-      1,
-      lastSelectedColumn
-    );
+    const sourceHeaderRange = sourceSheet.getRange(1, 1, 1, lastSelectedColumn);
+    const targetHeaderRange = targetSheet.getRange(1, 1, 1, lastSelectedColumn);
     sourceHeaderRange.copyTo(targetHeaderRange);
 
     console.log(
-      `Đã sao chép ${sourceData.length
-      } hàng từ "${sourceSheet.getName()}" sang "${targetSheet.getName()}"`
+      `Đã sao chép ${
+        sourceData.length
+      } hàng từ "${sourceSheet.getName()}" sang "${targetSheet.getName()}"`,
     );
     return sourceData.length;
   }
   return 0;
 }
-function initLuuTruSheet(ss) {
+function _initLuuTruSheet(ss) {
   const sheet = ss.insertSheet("Lưu trữ");
 
   // Define the data to populate (label, value)
@@ -1180,17 +1236,21 @@ function initLuuTruSheet(ss) {
     [
       "Địa điểm tập trung đi xe đoàn",
       "cổng Đông công viên Hoà Bình, đường Đỗ Nhuận, Bắc Từ Liêm, Hà Nội (Đối diện bệnh viện Mặt Trời - SunGroup)",
-      "DIA_DIEM_TAP_TRUNG"
+      "DIA_DIEM_TAP_TRUNG",
     ], // Row 5
     [
       "Link địa điểm tập trung đi xe đoàn",
       "https://maps.app.goo.gl/UprGfvKKzuKrwoQr7",
-      "LINK_DIA_DIEM_TAP_TRUNG"
+      "LINK_DIA_DIEM_TAP_TRUNG",
     ], // Row 6
     ["Thời gian tập trung", "6h00", "THOI_GIAN_TAP_TRUNG"], // Row 7
     ["Thời gian xe xuất phát", "7h00", "THOI_GIAN_XE_XUAT_PHAT"], // Row 8
     ["Thời gian có mặt tại thiền viện", "9h00", "THOI_GIAN_CO_MAT"], // Row 9
-    ["Hạn chót ngày huỷ đăng ký cho thiền sinh", new Date(2025, 7, 25), "HAN_CHOT"], // Row 10
+    [
+      "Hạn chót ngày huỷ đăng ký cho thiền sinh",
+      new Date(2025, 7, 25),
+      "HAN_CHOT",
+    ], // Row 10
     ["Link nhóm Zalo", "https://www.google.com", "LINK_NHOM_ZALO"], // Row 11
     ["Tên đường dây nóng 1", "Phật tử Diệu Từ", "TEN_DUONG_DAY_NONG_1"], // Row 12
     ["Số điện thoại", "0988 237 713", "SO_DIEN_THOAI_1"], // Row 13
@@ -1200,11 +1260,15 @@ function initLuuTruSheet(ss) {
     ["Ngân hàng người chịu trách nhiệm nhận tiền", "VIETINBANK", "TKNH"], // Row 17
     ["Tên chủ tài khoản ", "Mẫn Thị Thảo", "CHU_TK_NGAN_HANG"], // Row 18
     ["Số tài khoản", "123456789", "SO_TK_NH"], // Row 19
-    ["Ngày nhắc thanh toán tiền", new Date(2025, 7, 20), "NGAY_NHAC_THANH_TOAN"], // Row 20
+    [
+      "Ngày nhắc thanh toán tiền",
+      new Date(2025, 7, 20),
+      "NGAY_NHAC_THANH_TOAN",
+    ], // Row 20
     [
       "Link ảnh trên mail",
       "https://ghun131.github.io/meditation-course-images/khoa_tu_default_img.jpg",
-      "LINK_ANH_MAIL"
+      "LINK_ANH_MAIL",
     ], // Row 21
     ["Form Id", "", "FORM_ID"], // Row 22
     ["Giờ kết thúc khoá tu", "17h", "GIO_KET_THUC"], // Row 23
@@ -1224,12 +1288,12 @@ function initLuuTruSheet(ss) {
   // Auto-resize columns
   sheet.autoResizeColumns(1, 3);
 
-  console.log("Lưu trữ sheet initialized with configuration data");
+  console.log("Đã khởi tạo sheet Lưu trữ với dữ liệu cấu hình");
 
   return sheet;
 }
 
-function calculateNumberOfDays(startDate, endDate) {
+function _calculateNumberOfDays(startDate, endDate) {
   const startDateArr = startDate.split("/");
   const endDateArr = endDate.split("/");
   const start = new Date(startDateArr[2], startDateArr[1], startDateArr[0]);
@@ -1239,7 +1303,7 @@ function calculateNumberOfDays(startDate, endDate) {
   return diffDays;
 }
 
-function getHeadersIndices(headerData) {
+function _getHeadersIndices(headerData) {
   const result = new Map();
 
   for (let i = 0; i < headerData.length; i++) {
@@ -1247,9 +1311,11 @@ function getHeadersIndices(headerData) {
 
     if (
       ["phương tiện", "cách thức", "hình thức", "phương thức"].some((val) =>
-        header.includes(val)
+        header.includes(val),
       ) &&
-      (header.includes("di chuyển") || header.includes("đi lại") || header.includes("di chuyển lên"))
+      (header.includes("di chuyển") ||
+        header.includes("đi lại") ||
+        header.includes("di chuyển lên"))
     ) {
       result.set("vehicle", i);
     }
@@ -1305,6 +1371,10 @@ function getHeadersIndices(headerData) {
       result.set("note", i);
     }
 
+    if (header === "huỷ" || header === "hủy") {
+      result.set("cancelled", i);
+    }
+
     if (header.includes("năm sinh") || header.includes("chào đời")) {
       result.set("dateOfBirth", i);
     }
@@ -1314,23 +1384,19 @@ function getHeadersIndices(headerData) {
       header.includes("phone") ||
       header.includes("sdt")
     ) {
-      console.log('header', header, i)
+      console.log("header", header, i);
       result.get("phoneNumber") ? null : result.set("phoneNumber", i);
     }
 
     if (header.includes("giới tính")) {
       result.get("gender") ? null : result.set("gender", i);
     }
-
-    if (header === "lặp thiền sinh") {
-      result.set("duplicateStudent", i);
-    }
   }
 
   return result;
 }
 
-function getSavedData() {
+function _getSavedData() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Lưu trữ");
   const savedData = sheet
     .getRange(1, 1, sheet.getLastRow(), sheet.getLastColumn())
@@ -1369,7 +1435,7 @@ function getSavedData() {
   return result;
 }
 
-function getSavedDataCode() {
+function _getSavedDataCode() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Lưu trữ");
   const savedData = sheet
     .getRange(1, 1, sheet.getLastRow(), sheet.getLastColumn())
@@ -1398,16 +1464,19 @@ function getSavedDataCode() {
     ["bankAccountNumber", { value: savedData[19][1], key: savedData[19][2] }], // Số tài khoản ngân hàng
     ["deadlinePayment", { value: savedData[20][1], key: savedData[20][2] }], // Hạn chót thanh toán
     ["imageLink", { value: savedData[21][1], key: savedData[21][2] }], // Link ảnh trên mail
-    ["formId", { value: savedData[22][1], key: 'FORM_ID' }], // ID form
+    ["formId", { value: savedData[22][1], key: "FORM_ID" }], // ID form
     ["endTime", { value: savedData[23][1], key: savedData[23][2] }], // Giờ kết thúc khoá tu
-    ["numbefOfMeditationDays", { value: savedData[24][1], key: savedData[24][2] }], // Số ngày tham gia tu tập
+    [
+      "numbefOfMeditationDays",
+      { value: savedData[24][1], key: savedData[24][2] },
+    ], // Số ngày tham gia tu tập
     ["announcementDate", { value: savedData[25][1], key: savedData[25][2] }], // Ngày thông báo
   ]);
 
   return result;
 }
 
-function formatDate(dateObj) {
+function _formatDate(dateObj) {
   if (!dateObj) {
     return "";
   }
@@ -1428,8 +1497,8 @@ function _allocateXeDoanBuses(passengers, capacity) {
     return a.sourceRow - b.sourceRow;
   });
 
-  const males = sorted.filter(p => p.gender.toLowerCase() === "nam");
-  const females = sorted.filter(p => p.gender.toLowerCase() !== "nam");
+  const males = sorted.filter((p) => p.gender.toLowerCase() === "nam");
+  const females = sorted.filter((p) => p.gender.toLowerCase() !== "nam");
 
   const numBuses = Math.ceil(sorted.length / capacity);
   const buses = Array.from({ length: numBuses }, () => []);
@@ -1482,17 +1551,23 @@ function _renderDanhSachXeSheet(sheet, blocks) {
   // 8+: passenger data
   const HEADER_OFFSET = 8;
 
-  const maxPassengers = blocks.reduce((max, b) => Math.max(max, b.passengers.length), 0);
+  const maxPassengers = blocks.reduce(
+    (max, b) => Math.max(max, b.passengers.length),
+    0,
+  );
   const totalRows = HEADER_OFFSET + maxPassengers;
   const totalCols = blocks.length * BLOCK_STRIDE;
 
-  const grid = Array.from({ length: totalRows }, () => Array(totalCols).fill(""));
+  const grid = Array.from({ length: totalRows }, () =>
+    Array(totalCols).fill(""),
+  );
 
   // Global title
   grid[1][1] = "DANH SÁCH XE ĐOÀN";
   grid[2][1] = "Chưa thanh toán tiền xe";
 
-  blocks.forEach((block, bIdx) => {
+  for (let bIdx = 0; bIdx < blocks.length; ++bIdx) {
+    const block = blocks[bIdx];
     const colStart = bIdx * BLOCK_STRIDE;
 
     grid[3][colStart + 1] = block.title;
@@ -1504,15 +1579,16 @@ function _renderDanhSachXeSheet(sheet, blocks) {
     grid[7][colStart + 3] = "Giới tính";
     grid[7][colStart + 4] = "Số điện thoại";
 
-    block.passengers.forEach((p, pIdx) => {
+    for (let pIdx = 0; pIdx < block.passengers.length; ++pIdx) {
+      const p = block.passengers[pIdx];
       const rowIdx = HEADER_OFFSET + pIdx;
       grid[rowIdx][colStart] = pIdx + 1;
       grid[rowIdx][colStart + 1] = p.name;
       grid[rowIdx][colStart + 2] = p.dob;
       grid[rowIdx][colStart + 3] = p.gender;
       grid[rowIdx][colStart + 4] = p.phone;
-    });
-  });
+    }
+  }
 
   sheet.getRange(1, 1, totalRows, totalCols).setValues(grid);
 
@@ -1523,7 +1599,8 @@ function _renderDanhSachXeSheet(sheet, blocks) {
   sheet.getRange(3, 1).setBackground("#f4cccc");
 
   // Format per block
-  blocks.forEach((block, bIdx) => {
+  for (let bIdx = 0; bIdx < blocks.length; ++bIdx) {
+    const block = blocks[bIdx];
     const colStart = bIdx * BLOCK_STRIDE;
 
     // Block title bold
@@ -1534,17 +1611,27 @@ function _renderDanhSachXeSheet(sheet, blocks) {
     headerRange.setFontWeight("bold");
     headerRange.setBackground("#4a86e8");
     headerRange.setFontColor("white");
+    headerRange.setHorizontalAlignment("center");
+    headerRange.setVerticalAlignment("middle");
     headerRange.setBorder(true, true, true, true, true, true);
 
     // Data rows border + red background for unpaid
-    block.passengers.forEach((p, pIdx) => {
-      const rowRange = sheet.getRange(HEADER_OFFSET + pIdx + 1, colStart + 1, 1, BLOCK_WIDTH);
+    for (let pIdx = 0; pIdx < block.passengers.length; ++pIdx) {
+      const p = block.passengers[pIdx];
+      const rowRange = sheet.getRange(
+        HEADER_OFFSET + pIdx + 1,
+        colStart + 1,
+        1,
+        BLOCK_WIDTH,
+      );
       rowRange.setBorder(true, true, true, true, true, true);
+      rowRange.setHorizontalAlignment("center");
+      rowRange.setVerticalAlignment("middle");
       if (!p.paid) {
         rowRange.setBackground("#f4cccc");
       }
-    });
-  });
+    }
+  }
 
   // Auto-resize all columns
   for (let c = 1; c <= totalCols; c++) {
